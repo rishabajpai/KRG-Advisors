@@ -590,26 +590,18 @@ function how() {
     </div></div>
 
   <div class="sec"><h2>Campaigns Vieu runs</h2>
-    <div class="pool"><span class="cap">All three draw on one pool:</span>
-      <span class="pchip"><b>Your Top 1K</b> ${fmt(O.total)} accounts you chose</span><span class="plus">+</span>
-      <span class="pchip"><b>New companies</b> found in news worldwide</span></div>
     <div class="trio">
-      <button class="tile" data-tab="week"><span class="h">Weekly Top Accounts</span>
-        <span class="cap">The Top 1K accounts with the freshest signals.</span>
+      <button class="tile" data-tab="week"><span class="h">Weekly Priority Accounts from Top 1K</span>
         <span class="tnum"><b>${W.length}</b> accounts to contact this week</span><span class="cap">chosen from ${fmt(O.fresh)} showing a signal now</span></button>
-      <button class="tile" data-tab="new"><span class="h">Monthly New Companies beyond Top 1K</span>
-        <span class="cap">Not on your list yet, but fit KRG. Approve one to add it.</span>
+      <button class="tile" data-tab="new"><span class="h">Priority Companies beyond Top 1K</span>
         <span class="tnum"><b>${M.accounts.length}</b> new companies this month</span><span class="cap">out of ${M.totalFound} found</span></button>
-      <button class="tile geo" data-tab="campaign"><span class="h">Specific Campaigns on Request</span>
-        <span class="cap">Name a theme or an adviser. Vieu builds the list and drafts in about a day.</span>
+      <button class="tile geo" data-tab="campaign"><span class="h">Specific Campaigns</span>
         <span class="tnum"><b>${C.accounts.length}</b> accounts for a geopolitical campaign</span><span class="cap">built for adviser Aidan Harte</span></button>
     </div>
     <div class="chips"><span class="cap">Campaigns we can run next</span><span class="chip">AI risk watch</span><span class="chip">Data centres</span><span class="chip">First 100 days</span><span class="chip">Activist watch</span><span class="chip">One per adviser</span></div></div>
 
-  <div class="sec"><h2>How it fits into KRG</h2>
-    <p class="cap">No new software to learn. Picks, people and drafts arrive wherever KRG works, and your Vieu engineer keeps it running.</p>
-    <div class="dlv">${DELIVER.map(([ic, h, t]) => `<div class="dv"><span class="ic">${ic}</span><b>${h}</b><span class="cap">${t}</span></div>`).join("")}</div>
-    <div class="engbar"><span class="who">Your Vieu engineer</span><span><b>Sets up the engine</b> in week one</span><span><b>Makes adjustments</b> as replies come in</span><span><b>Builds custom requests</b> in about a day</span></div></div>`;
+  <div class="sec"><h2>Delivery mode to KRG</h2>
+    <div class="dlv">${DELIVER.map(([ic, h, t]) => `<div class="dv"><span class="ic">${ic}</span><b>${h}</b><span class="cap">${t}</span></div>`).join("")}</div></div>`;
 }
 
 /* ---------- Outreach ---------- */
@@ -683,7 +675,7 @@ function events() {
 }
 
 /* ---------- tabs ---------- */
-const VIEWS = [["how", "Overview", how], ["week", "Weekly top accounts", week], ["new", "Monthly new companies", monthly], ["campaign", "On request: geopolitical", campaign], ["outreach", "Outreach", outreach], ["events", "Events", events]];
+const VIEWS = [["how", "Overview", how], ["week", "Weekly priority accounts", week], ["new", "Priority companies beyond Top 1K", monthly], ["campaign", "Specific campaigns", campaign], ["outreach", "Outreach", outreach], ["events", "Events", events]];
 const GROUPS = [["Overview", ["how"]], ["Campaigns", ["week", "new", "campaign"]], ["Outreach & events", ["outreach", "events"]]];
 const nav = document.getElementById("tabs"), sub = document.getElementById("subtabs"), main = document.getElementById("views");
 const label = Object.fromEntries(VIEWS.map(v => [v[0], v[1]]));
