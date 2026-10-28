@@ -330,12 +330,32 @@ h2.mega { font-size: clamp(28px, 4.6vw, 48px); line-height: 1.05; max-width: 22c
 .subnav button[aria-pressed="true"] { background: var(--accent-soft); border-color: transparent; color: var(--accent); font-weight: 700 }
 .tnum { margin-top: 10px; font-size: 16px; display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap }
 .tnum b { font-size: 40px; line-height: 1 }
-.story { display: grid; grid-template-columns: minmax(0, 1fr) 22px minmax(0, 1fr) 22px minmax(0, 1fr) 22px minmax(0, 1fr) }
+.story { display: grid; grid-template-columns: minmax(0, 1fr) 22px minmax(0, 1fr) 22px minmax(0, 1.8fr) 22px minmax(0, 1fr) }
+.lv { display: grid; gap: 4px; justify-items: start; font-size: 14.5px; line-height: 1.4 }
 .st { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; display: grid; gap: 8px; align-content: start; justify-items: start; font-size: 15px; min-width: 0 }
 .st.warm { border-color: var(--warm-dot); background: var(--warm-soft) }
 .st .sn { font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--accent); font-weight: 700 }
 .st b { font-weight: 700; line-height: 1.35 }
 @container (max-width: 760px) { .story { grid-template-columns: 1fr; gap: 6px } .story .join { transform: rotate(90deg); justify-self: start; margin-left: 16px } }
+.live { border: 2px solid var(--accent); border-radius: 18px; padding: 16px; display: grid; gap: 14px; background: var(--accent-soft); margin-top: 6px }
+.live-h { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px }
+.live-h h3 { font-size: 20px }
+.livebadge { display: inline-flex; align-items: center; gap: 8px; background: var(--accent); color: #fff; font-size: 12px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; padding: 5px 12px; border-radius: 999px }
+.pulse { width: 8px; height: 8px; border-radius: 50%; background: #00EC8A; box-shadow: 0 0 0 3px rgba(0,236,138,.35) }
+.camps { border: 1px solid var(--line); border-radius: 16px; background: var(--surface); overflow: hidden }
+.camp { font: inherit; color: inherit; text-align: left; width: 100%; background: none; border: 0; border-top: 1px solid var(--line); cursor: pointer; display: grid; grid-template-columns: 120px minmax(0, 340px) minmax(0, 1fr) 24px; gap: 16px; align-items: center; padding: 16px 20px }
+.camp:first-child { border-top: 0 }
+.camp:hover { background: var(--tint) }
+.camp .cad { font-size: 12px; letter-spacing: .08em; text-transform: uppercase; font-weight: 700; color: var(--accent) }
+.camp.geo .cad { color: var(--geo) }
+.camp .ct { font-size: 18px; font-weight: 700 }
+.camp .cn { display: flex; align-items: center; gap: 12px }
+.camp .cn b { font-size: 40px; color: var(--accent); line-height: 1; font-variant-numeric: tabular-nums; min-width: 28px }
+.camp .cn > span { display: grid; gap: 2px; font-size: 16px }
+.camp .cn strong { font-weight: 700 }
+.camp .cn small { font-size: 13px; color: var(--muted) }
+.camp .go { color: var(--muted) }
+@container (max-width: 620px) { .camp { grid-template-columns: 1fr; gap: 6px } .camp .go { display: none } }
 .dlv { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px }
 .dv { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 18px; display: grid; gap: 6px; align-content: start }
 .dv .ic { width: 48px; height: 48px; border-radius: 12px; background: #FFFFFF; border: 1px solid var(--line); display: grid; place-items: center; margin-bottom: 4px }
@@ -578,25 +598,28 @@ function how() {
       <div class="fk"><div class="step"><i>3</i>Find the way in</div><span class="cap">Three levers:</span>
         <div class="levers"><button class="way warm" data-tab="outreach">Warm intros</button><button class="way note" data-tab="outreach">Signal-led outreach</button><button class="way geo" data-tab="events">Events</button></div></div>
     </div>
-    <div class="label" style="margin-top:6px">For example: ${esc(X.account)}, from signal to ready-to-send intro</div>
+    <div class="live"><div class="live-h"><span class="livebadge">Example</span><h3>${esc(X.account)}: from signal to a ready-to-send intro</h3></div>
     <div class="story">
       <div class="st"><span class="sn">1 · The signal</span><b>${dt(A.signal.date)}: ${esc(X.account)} names a new Chief Corporate Affairs Officer, ${esc(X.decision)}.</b><span class="cap">New chiefs review outside advisers in their first 100 days.</span></div>
       ${JOIN}
       <div class="st"><span class="sn">2 · The people</span><b>${esc(X.decision)} decides. ${esc(X.relay)}, SVP Public Relations, can bring Ross in.</b><span class="cap">Plus ${A.committee.length - 2} more in the buying committee.</span></div>
       ${JOIN}
-      <div class="st warm"><span class="sn">3 · The way in</span><b>KRG adviser ${esc(X.introducer)} worked with ${esc(first(X.relay))} at FleishmanHillard, 2012–2014.</b><span class="cap">A warm path, found in KRG's Vieu workspace.</span></div>
+      <div class="st"><span class="sn">3 · The way in: three levers</span>
+        <div class="lv"><span class="way warm">Warm intro · best</span><span>KRG adviser ${esc(X.introducer)} worked with <b>${esc(X.relay)}</b>, SVP Public Relations at M&amp;T, at FleishmanHillard, 2012–2014.</span></div>
+        <div class="lv"><span class="way note">Signal-led outreach</span><span>Ross emails <b>${esc(X.decision)}</b>, M&amp;T's new Chief Corporate Affairs Officer, about his first 100 days.</span></div>
+        <div class="lv"><span class="way geo">Events</span><span>${esc(X.relay)} is in New York: invite him to the KRG dinner. M&amp;T presents at the Goldman Sachs Financial Services Conference each December.</span></div></div>
       ${JOIN}
       <div class="st"><span class="sn">4 · Ready</span><b>Vieu drafts ${esc(first(X.introducer))}'s intro to ${esc(first(X.relay))}. ${esc(first(X.introducer))} sends it from his inbox.</b><button class="btn primary" data-goto="${esc(X.id)}">Open the draft</button></div>
-    </div></div>
+    </div></div></div>
 
   <div class="sec"><h2>Campaigns Vieu runs</h2>
-    <div class="trio">
-      <button class="tile" data-tab="week"><span class="h">Weekly Priority Accounts from Top 1K</span>
-        <span class="tnum"><b>${W.length}</b> accounts to contact this week</span><span class="cap">chosen from ${fmt(O.fresh)} showing a signal now</span></button>
-      <button class="tile" data-tab="new"><span class="h">Priority Companies beyond Top 1K</span>
-        <span class="tnum"><b>${M.accounts.length}</b> new companies this month</span><span class="cap">out of ${M.totalFound} found</span></button>
-      <button class="tile geo" data-tab="campaign"><span class="h">Specific Campaigns</span>
-        <span class="tnum"><b>${C.accounts.length}</b> accounts for a geopolitical campaign</span><span class="cap">built for adviser Aidan Harte</span></button>
+    <div class="camps">
+      <button class="camp" data-tab="week"><span class="cad">Every week</span><span class="ct">Weekly Priority Accounts from Top 1K</span>
+        <span class="cn"><b>${W.length}</b><span><strong>accounts this week</strong><small>picked by fresh signals</small></span></span><span class="go" aria-hidden="true">${ARROW}</span></button>
+      <button class="camp" data-tab="new"><span class="cad">Every month</span><span class="ct">Priority Companies beyond Top 1K</span>
+        <span class="cn"><b>${M.accounts.length}</b><span><strong>new companies this month</strong><small>found in news worldwide, fit KRG</small></span></span><span class="go" aria-hidden="true">${ARROW}</span></button>
+      <button class="camp geo" data-tab="campaign"><span class="cad">On request</span><span class="ct">Specific Campaigns</span>
+        <span class="cn"><b>${C.accounts.length}</b><span><strong>accounts for Aidan Harte</strong><small>geopolitical campaign, built in a day</small></span></span><span class="go" aria-hidden="true">${ARROW}</span></button>
     </div>
     <div class="chips"><span class="cap">Campaigns we can run next</span><span class="chip">AI risk watch</span><span class="chip">Data centres</span><span class="chip">First 100 days</span><span class="chip">Activist watch</span><span class="chip">One per adviser</span></div></div>
 
