@@ -1,0 +1,948 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+
+<meta charset="utf-8">
+<title>KRG Demand Engine</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Share:wght@400;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: four tabs sharing one visual grammar, company -> people -> way in, side by side. Colour encodes route only: green adviser intro, amber cold note, red geopolitical. Purple marks steps, decision makers and the one main action. */
+:root {
+  --bg: #EEEEEE; --surface: #FFFFFF; --tint: #F6F5F8; --ink: #2E2B33; --muted: #625D6B; --line: #DDDAE2;
+  --accent: #7744FF; --accent-soft: #EEE8FF; --warm: #0A7F55; --warm-dot: #00B877; --warm-soft: #E1F6EC;
+  --note: #8A5A00; --note-dot: #E5A50A; --note-soft: #FFF2D6; --geo: #B4233A; --geo-dot: #E0485F; --geo-soft: #FFE8EC;
+  --display: "Share", "Trebuchet MS", system-ui, sans-serif; --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #16141B; --surface: #211E28; --tint: #2A2632; --ink: #ECEAF1; --muted: #ABA5B8; --line: #38343F;
+  --accent: #A88BFF; --accent-soft: #2E2645; --warm: #4FE0A6; --warm-dot: #3FD596; --warm-soft: #183A2D;
+  --note: #F4CE6A; --note-dot: #E5B02A; --note-soft: #3A3018; --geo: #FF8C9B; --geo-dot: #F05C72; --geo-soft: #3F2027; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #16141B; --surface: #211E28; --tint: #2A2632; --ink: #ECEAF1; --muted: #ABA5B8; --line: #38343F;
+  --accent: #A88BFF; --accent-soft: #2E2645; --warm: #4FE0A6; --warm-dot: #3FD596; --warm-soft: #183A2D;
+  --note: #F4CE6A; --note-dot: #E5B02A; --note-soft: #3A3018; --geo: #FF8C9B; --geo-dot: #F05C72; --geo-soft: #3F2027; color-scheme: dark }
+* { box-sizing: border-box }
+[hidden] { display: none !important }
+body { background: var(--bg); color: var(--ink); font-family: var(--display); font-size: 15px; line-height: 1.55 }
+.wrap { max-width: 1140px; margin: 0 auto; padding-block: 28px 48px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: grid; gap: 22px }
+h1, h2, h3 { font-family: var(--display); margin: 0; text-wrap: balance; line-height: 1.2 }
+h1 { font-size: clamp(26px, 4vw, 38px) }
+h2 { font-size: 22px }
+h3 { font-size: 17px }
+p { margin: 0 }
+.muted { color: var(--muted) }
+.small { font-size: 14px }
+.label { font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted) }
+header { display: grid; gap: 8px }
+header p { max-width: 68ch; font-size: 16px; color: var(--muted) }
+nav { display: flex; gap: 4px; overflow-x: auto; border-bottom: 1px solid var(--line) }
+nav button { font: inherit; font-size: 16px; background: none; border: 0; padding: 10px 14px; color: var(--muted); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; white-space: nowrap }
+nav button[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--accent); font-weight: 700 }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px }
+section.view { display: grid; gap: 22px }
+a { color: inherit; text-decoration-color: var(--muted); text-underline-offset: 3px }
+a.src { color: var(--muted); font-size: 13px; white-space: nowrap }
+
+/* summary line of numbers */
+.nums { display: flex; flex-wrap: wrap; gap: 10px 28px; align-items: baseline }
+.num b { font-size: 30px; font-weight: 700; font-variant-numeric: tabular-nums; margin-right: 6px }
+.num span { color: var(--muted); font-size: 14px }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 13px; color: var(--muted) }
+.dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 7px; vertical-align: 1px; flex: none }
+.dot.warm { background: var(--warm-dot) } .dot.note { background: var(--note-dot) } .dot.geo { background: var(--geo-dot) }
+
+.layout { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 22px; align-items: start }
+@media (max-width: 900px) { .layout { grid-template-columns: 1fr } }
+
+/* account rows */
+.list { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; overflow: hidden }
+.row { border-top: 1px solid var(--line) }
+.row:first-child { border-top: 0 }
+.row > summary { list-style: none; cursor: pointer; padding: 14px 18px; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 12px; align-items: start }
+.row > summary::-webkit-details-marker { display: none }
+.row > summary:hover { background: var(--tint) }
+.row[open] > summary { background: var(--tint) }
+.r-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px }
+.r-head b { font-size: 17px }
+.r-sig { font-size: 14px; color: var(--muted) }
+.r-route { grid-column: 1; font-size: 14.5px; display: flex; align-items: baseline }
+.chev { grid-row: 1 / span 2; grid-column: 2; color: var(--muted); font-family: var(--mono); font-size: 14px; align-self: center; transition: transform .15s }
+.row[open] .chev { transform: rotate(90deg) }
+.tag { font-size: 12px; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); white-space: nowrap }
+.tag.geo { color: var(--geo); background: var(--geo-soft); border-color: transparent }
+.tag.new { color: var(--accent); background: var(--accent-soft); border-color: transparent }
+.r-body { padding: 4px 18px 18px; display: grid; gap: 14px; background: var(--tint) }
+.kv { display: grid; grid-template-columns: 130px minmax(0, 1fr); gap: 4px 14px; font-size: 14.5px }
+.kv dt { color: var(--muted) } .kv dd { margin: 0 }
+@media (max-width: 520px) { .kv { grid-template-columns: 1fr } .kv dt { margin-top: 6px } }
+.play { border-left: 3px solid var(--accent); padding: 2px 0 2px 12px; font-size: 15px; border-radius: 0 }
+.draft { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; display: grid; gap: 10px }
+.draft-meta { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 13px; color: var(--muted) }
+.draft pre { margin: 0; white-space: pre-wrap; font-family: var(--display); font-size: 15px; line-height: 1.6; max-width: 70ch }
+.actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center }
+.btn { font: inherit; font-size: 14px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); border-radius: 8px; padding: 6px 12px; cursor: pointer }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: #fff }
+:root[data-theme="dark"] .btn.primary { color: #16141B }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .btn.primary { color: #16141B } }
+.btn[aria-pressed="true"] { background: var(--warm-soft); color: var(--warm); border-color: transparent; font-weight: 700 }
+.btn.no[aria-pressed="true"] { background: var(--note-soft); color: var(--note) }
+.sub { border-top: 1px solid var(--line); padding-top: 10px }
+.sub > summary { cursor: pointer; font-size: 14px; color: var(--muted) }
+.committee { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; margin-top: 10px }
+.pod { display: grid; gap: 8px; align-content: start }
+.person { font-size: 14px; line-height: 1.35 }
+.person .r { font-size: 13px; color: var(--muted) }
+.person .w { font-size: 13px; color: var(--warm) }
+
+/* side rail */
+.rail { display: grid; gap: 16px }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 16px; display: grid; gap: 12px; min-width: 0 }
+.ask { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px 10px; align-items: center; padding-top: 10px; border-top: 1px solid var(--line); font-size: 14px }
+.ask .who { grid-column: 1 / -1; font-weight: 700 }
+.yn { display: flex; gap: 6px }
+.yn .btn { padding: 4px 10px; font-size: 13px }
+.venue { font-size: 14px; display: grid; gap: 2px }
+
+/* blocks for other tabs */
+.brief { display: grid; gap: 8px }
+.brief dl { display: grid; grid-template-columns: 110px minmax(0, 1fr); gap: 6px 14px; margin: 0; font-size: 15px }
+.brief dt { color: var(--muted) } .brief dd { margin: 0 }
+.quote { font-size: 17px; line-height: 1.5; border-left: 3px solid var(--geo); padding-left: 14px; border-radius: 0 }
+.group { display: grid; gap: 8px }
+.group h3 { display: flex; gap: 8px; align-items: baseline }
+.group h3 span { font-size: 14px; color: var(--muted); font-weight: 400 }
+.mrow { padding: 14px 18px; border-top: 1px solid var(--line); display: grid; gap: 4px }
+.mrow:first-child { border-top: 0 }
+.pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-items: start }
+@media (max-width: 760px) { .pair { grid-template-columns: 1fr } }
+.lanes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px }
+@media (max-width: 760px) { .lanes { grid-template-columns: 1fr } }
+.lane ol { margin: 0; padding-left: 20px; display: grid; gap: 6px; font-size: 15px }
+.lane h3 { display: flex; align-items: baseline }
+.math { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-size: 15px }
+.math .step { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px }
+.math .step b { font-size: 20px; margin-right: 6px }
+.math .arr { color: var(--muted); font-family: var(--mono) }
+.boxes { display: grid; grid-template-columns: auto minmax(0, 1fr) minmax(0, 1fr); gap: 8px; font-size: 14px }
+.boxes .hd { color: var(--muted); font-size: 13px; padding: 0 4px; align-self: end }
+.boxes .rh { color: var(--muted); font-size: 13px; align-self: center; padding-right: 6px }
+.box { border: 1px solid var(--line); border-radius: 10px; padding: 12px; background: var(--surface) }
+.box b { font-size: 22px; display: block; font-variant-numeric: tabular-nums }
+.box.act { border-color: var(--ink) }
+table { border-collapse: collapse; width: 100%; font-size: 14.5px }
+th, td { text-align: left; padding: 10px 14px; border-top: 1px solid var(--line); vertical-align: top }
+thead th { border-top: 0; font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); font-weight: 400 }
+.note { font-size: 13px; color: var(--muted); max-width: 85ch }
+.tag.warm { color: var(--warm); background: var(--warm-soft); border-color: transparent }
+a.btn { text-decoration: none; display: inline-block }
+.btn:disabled { cursor: default; opacity: 1; color: var(--muted) }
+.flow { display: grid; gap: 14px; border-top: 1px dashed var(--line); padding-top: 14px }
+.flow-step { display: grid; gap: 8px }
+.mail { border: 1px solid var(--line); border-radius: 10px; background: var(--bg); overflow: hidden }
+.mail-h { padding: 10px 14px; border-bottom: 1px solid var(--line); display: grid; gap: 2px; font-size: 14px; background: var(--surface) }
+.mail-h span { display: inline-block; width: 64px; color: var(--muted); font-size: 13px }
+.mail-b { padding: 12px 14px; display: grid; gap: 10px; font-size: 15px; background: var(--surface) }
+.mail-b pre { margin: 0; white-space: pre-wrap; font-family: var(--display); font-size: 15px; line-height: 1.6 }
+.mail-f { padding: 8px 14px; font-size: 13px; color: var(--muted); border-top: 1px solid var(--line) }
+.people { display: grid; gap: 0; margin-top: 6px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface) }
+.prow { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px 14px; padding: 10px 12px; border-top: 1px solid var(--line); align-items: center }
+.prow:first-child { border-top: 0 }
+.pinfo { font-size: 14.5px; min-width: 0 }
+.pinfo .r { font-size: 13px; color: var(--muted) }
+.pact { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end }
+.pact .btn { font-size: 13px; padding: 4px 10px }
+@media (max-width: 640px) { .prow { grid-template-columns: 1fr } .pact { justify-content: flex-start } }
+.r-why { grid-column: 1; font-size: 14px; color: var(--ink) }
+/* ---- one visual grammar: company -> people -> way in, side by side ---- */
+section.view { container-type: inline-size }
+.r-body { container-type: inline-size }
+.sec { display: grid; gap: 14px }
+.sec > h2 { font-size: 22px }
+h2.mega { font-size: clamp(28px, 4.6vw, 48px); line-height: 1.05; max-width: 22ch }
+.lede { font-size: 17px; color: var(--muted); margin-top: 6px }
+.cta { display: flex; flex-wrap: wrap; gap: 8px }
+.cta .btn { font-size: 15px; padding: 8px 14px }
+
+.flow3 { display: grid; grid-template-columns: minmax(0, 1fr) 28px minmax(0, 1fr) 28px minmax(0, 1fr); grid-template-rows: auto auto }
+.flow3 > .col { grid-row: span 2; display: grid; grid-template-rows: subgrid; background: var(--surface); border: 1px solid var(--line); border-radius: 16px; overflow: hidden; min-width: 0 }
+.flow3 > .join { grid-row: span 2 }
+.join { display: grid; place-items: center; color: var(--accent) }
+.arr { width: 22px; height: 22px }
+.col-top { padding: 18px; display: grid; gap: 4px; align-content: start }
+.step { display: flex; gap: 10px; align-items: center; font-weight: 700; font-size: 17px }
+.step i { width: 28px; height: 28px; border-radius: 50%; background: var(--accent); color: #fff; display: grid; place-items: center; font-style: normal; font-size: 14px; flex: none }
+:root[data-theme="dark"] .step i { color: #16141B }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .step i { color: #16141B } }
+.stat { font-size: 40px; font-weight: 700; line-height: 1.05; font-variant-numeric: tabular-nums; margin-top: 10px }
+.stat small { font-size: 17px; color: var(--muted); font-weight: 400 }
+.cap { font-size: 14px; color: var(--muted) }
+.col-ex { background: var(--tint); border-top: 1px solid var(--line); padding: 14px 18px 18px; display: grid; gap: 10px; align-content: start }
+.col-ex .co { font-size: 19px; font-weight: 700 }
+
+.mini3 { display: grid; grid-template-columns: minmax(0, 1fr) 22px minmax(0, 1fr) 22px minmax(0, 1fr) }
+.mini3 .arr { width: 18px; height: 18px }
+.mc { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; display: grid; gap: 8px; align-content: start; min-width: 0; font-size: 14.5px }
+
+.xp { display: flex; gap: 10px; align-items: center; min-width: 0 }
+.xp > div { display: grid; min-width: 0 }
+.xp b { font-size: 15px }
+.av { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; font-style: normal; font-size: 12px; font-weight: 700; background: var(--surface); color: var(--muted); border: 1px solid var(--line); flex: none }
+.av.dm { background: var(--accent); color: #fff; border-color: transparent }
+:root[data-theme="dark"] .av.dm { color: #16141B }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .av.dm { color: #16141B } }
+.av.wm { background: var(--warm-soft); color: var(--warm); border-color: var(--warm-dot) }
+.chain { display: flex; flex-direction: column; align-items: flex-start; gap: 2px }
+.chain span { font-size: 14px; font-weight: 700; padding: 3px 10px; border-radius: 999px; background: var(--tint); border: 1px solid var(--line) }
+.mc .chain span { background: var(--bg) }
+.chain span.w { background: var(--warm-soft); color: var(--warm); border-color: transparent }
+.chain span.n { background: var(--note-soft); color: var(--note); border-color: transparent }
+.chain span.g { background: var(--geo-soft); color: var(--geo); border-color: transparent }
+.chain span.d { background: var(--accent); color: #fff; border-color: transparent }
+.chain svg { width: 12px; height: 12px; color: var(--muted); transform: rotate(90deg); margin-left: 14px }
+
+@container (max-width: 620px) {
+  .flow3, .mini3 { grid-template-columns: 1fr; grid-template-rows: none }
+  .flow3 > .col { grid-row: auto; grid-template-rows: auto auto }
+  .flow3 > .join { grid-row: auto }
+  .join { height: 28px } .join .arr { transform: rotate(90deg) }
+  .col-ex .label[aria-hidden] { display: none }
+}
+
+.trio { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px }
+@container (max-width: 620px) { .trio { grid-template-columns: 1fr } }
+.tile { font: inherit; color: inherit; text-align: left; background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 18px; display: grid; gap: 4px; align-content: start; cursor: pointer }
+.tile:hover { border-color: var(--ink) }
+.tile .cad { font-size: 12px; letter-spacing: .1em; text-transform: uppercase; color: var(--accent); font-weight: 700 }
+.tile.geo .cad { color: var(--geo) }
+.tile h3 { font-size: 18px }
+.tile .stat { margin-top: 8px }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center }
+.chip { font-size: 13px; padding: 2px 10px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); white-space: nowrap; background: var(--surface) }
+
+.steps { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)) }
+.steps li { display: grid; gap: 8px; align-content: start; padding-right: 12px; position: relative }
+.steps li::before { content: ""; position: absolute; top: 17px; left: 36px; right: 0; height: 2px; background: var(--line) }
+.steps li:last-child::before { display: none }
+.steps .sn { width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; font-weight: 700; background: var(--surface); border: 2px solid var(--ink); position: relative }
+.steps .sn.warm { border-color: var(--warm-dot); color: var(--warm) }
+.steps .sn.note { border-color: var(--note-dot); color: var(--note) }
+.steps b { font-size: 16px; display: block }
+.steps span.c { font-size: 14px; color: var(--muted) }
+@container (max-width: 620px) {
+  .steps { grid-template-columns: 1fr; gap: 12px }
+  .steps li { grid-template-columns: 36px minmax(0, 1fr); gap: 12px; padding-right: 0 }
+  .steps li::before { top: 36px; bottom: -12px; left: 17px; right: auto; width: 2px; height: auto }
+}
+
+.segs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px }
+@container (max-width: 620px) { .segs { grid-template-columns: 1fr } }
+.seg { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 18px; display: grid; gap: 10px; align-content: start }
+.segn { font-size: 36px; font-weight: 700; color: var(--accent); line-height: 1 }
+.seg p { font-size: 14.5px; color: var(--muted) }
+.seg .tag { justify-self: start }
+.tag.segtag { color: var(--accent); border-color: var(--accent); align-self: center; line-height: 1.5 }
+
+.strip { display: flex; flex-wrap: wrap; gap: 8px 28px; align-items: baseline }
+.strip div { display: flex; gap: 8px; align-items: baseline }
+.strip b { font-size: 32px; line-height: 1; font-variant-numeric: tabular-nums }
+.strip b.g { color: var(--warm) } .strip b.a { color: var(--note) }
+.strip span { font-size: 15px; color: var(--muted) }
+.way { font-size: 12.5px; font-weight: 700; padding: 2px 10px; border-radius: 999px; white-space: nowrap }
+.way.warm { background: var(--warm-soft); color: var(--warm) }
+.way.note { background: var(--note-soft); color: var(--note) }
+.way.geo { background: var(--geo-soft); color: var(--geo) }
+.way.tbc { background: var(--tint); color: var(--muted) }
+.r-route { flex-wrap: wrap; gap: 4px 0 }
+.tile > span { display: block }
+.tile .h { font-size: 18px; font-weight: 700 }
+
+
+.fork { display: grid; grid-template-columns: minmax(0, 1fr) 28px minmax(0, 1.3fr) 28px minmax(0, 1fr); align-items: center }
+.fk-mid { display: grid; gap: 10px }
+.fk { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; display: grid; gap: 6px; align-content: start; justify-items: start; min-width: 0 }
+.fk.note { border-left: 4px solid var(--note-dot) } .fk.warm { border-left: 4px solid var(--warm-dot) }
+.fk .step { font-size: 16px }
+.lanes2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-items: start }
+.lane2 { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 18px; display: grid; gap: 12px; min-width: 0 }
+.lane-h { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px }
+.lane-h h3 { font-size: 19px; margin-right: auto }
+.items { display: grid; gap: 10px }
+.item, .tgt { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px 12px; align-items: center; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--tint) }
+.tgt { grid-template-columns: 1fr }
+.adv { display: grid; gap: 8px; padding: 12px; border: 1px solid var(--line); border-radius: 12px }
+.adv-h { display: flex; gap: 10px; align-items: center } .adv-h .av { width: 30px; height: 30px; font-size: 11px }
+.seg3 { display: inline-flex } .seg3 .btn { border-radius: 0; font-size: 13px; padding: 4px 9px; margin-left: -1px }
+.seg3 .btn:first-child { border-radius: 8px 0 0 8px; margin-left: 0 } .seg3 .btn:last-child { border-radius: 0 8px 8px 0 }
+.seg3 .btn[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent); border-color: var(--line) }
+@container (max-width: 760px) {
+  .lanes2 { grid-template-columns: 1fr }
+}
+@container (max-width: 620px) {
+  .fork { grid-template-columns: 1fr }
+  .item, .tgt { grid-template-columns: 1fr }
+}
+
+.rtag { font-size: 11px; font-weight: 700; padding: 1px 7px; border-radius: 999px; background: var(--tint); color: var(--muted); border: 1px solid var(--line); white-space: nowrap; vertical-align: 2px; margin-left: 4px }
+.xp .cap { line-height: 1.35 }
+
+.runs { display: grid; grid-template-columns: 130px repeat(3, minmax(0, 1fr)); background: var(--surface); border: 1px solid var(--line); border-radius: 16px; overflow: hidden; font-size: 14.5px }
+.runs > div { padding: 12px 14px; border-top: 1px solid var(--line) }
+.runs > .rh { border-top: 0; padding-block: 14px 10px }
+.runs .rc { font-weight: 700 }
+.runs .who { font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); font-weight: 700 }
+.runs .who.eng { color: var(--accent) }
+.runs > .eng { background: var(--accent-soft) }
+.runs .nil { color: var(--muted) }
+@container (max-width: 620px) {
+  .runs { grid-template-columns: 1fr }
+  .runs > .rh { display: none }
+  .runs > .rc { background: var(--tint) }
+  .runs > div:not(.rc):not(.rh)::before { display: block; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); font-weight: 700 }
+  .runs > .rc + div::before { content: "Ross" } .runs > .rc + div + div::before { content: "Advisers" } .runs > .eng::before { content: "Vieu engineer" }
+}
+
+.evg { display: grid; gap: 8px; padding-top: 10px; border-top: 1px solid var(--line) }
+.evg .way { justify-self: start }
+.ev { display: grid; gap: 1px; font-size: 14px }
+
+.evrow { margin-top: 4px }
+.evgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px }
+.evc { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; display: grid; gap: 3px; align-content: start; font-size: 14.5px }
+.evn { font-size: 19px; font-weight: 700; line-height: 1.25; color: var(--accent); margin: 4px 0 8px }
+.evn a { color: inherit; text-decoration: none } .evn a:hover { text-decoration: underline }
+.evp { display: grid; border-top: 1px solid var(--line); padding-top: 8px }
+.evp b { font-size: 15px }
+.dg { padding: 14px 18px; border-top: 1px solid var(--line); display: grid; gap: 4px }
+.dg:first-child { border-top: 0 }
+.drow { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr) auto; gap: 8px 14px; align-items: center; padding: 8px 0; border-top: 1px dashed var(--line) }
+.dg .label + .drow { border-top: 0 }
+@container (max-width: 680px) { .drow { grid-template-columns: 1fr } }
+
+.engbar { display: flex; flex-wrap: wrap; gap: 8px 22px; align-items: baseline; background: var(--accent-soft); border-radius: 14px; padding: 14px 18px; font-size: 14.5px }
+.engbar .who { font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--accent); font-weight: 700 }
+
+.pool { display: flex; flex-wrap: wrap; gap: 8px 10px; align-items: center }
+.pchip { background: var(--surface); border: 1px solid var(--line); border-radius: 999px; padding: 6px 14px; font-size: 14px; color: var(--muted) }
+.pchip b { color: var(--ink); margin-right: 4px }
+.plus { font-weight: 700; color: var(--accent) }
+.subnav { display: flex; flex-wrap: wrap; gap: 6px; margin-top: -10px }
+.subnav[hidden] { display: none }
+.subnav button { font: inherit; font-size: 14px; padding: 6px 14px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); color: var(--muted); cursor: pointer }
+.subnav button[aria-pressed="true"] { background: var(--accent-soft); border-color: transparent; color: var(--accent); font-weight: 700 }
+.tnum { margin-top: 10px; font-size: 16px; display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap }
+.tnum b { font-size: 40px; line-height: 1 }
+.story { display: grid; grid-template-columns: minmax(0, 1fr) 22px minmax(0, 1fr) 22px minmax(0, 1.8fr) 22px minmax(0, 1fr) }
+.lv { display: grid; gap: 4px; justify-items: start; font-size: 14.5px; line-height: 1.4 }
+.st { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; display: grid; gap: 8px; align-content: start; justify-items: start; font-size: 15px; min-width: 0 }
+.st.warm { border-color: var(--warm-dot); background: var(--warm-soft) }
+.st .sn { font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--accent); font-weight: 700 }
+.st b { font-weight: 700; line-height: 1.35 }
+@container (max-width: 760px) { .story { grid-template-columns: 1fr; gap: 6px } .story .join { transform: rotate(90deg); justify-self: start; margin-left: 16px } }
+.live { border: 2px solid var(--accent); border-radius: 18px; padding: 16px; display: grid; gap: 14px; background: var(--accent-soft); margin-top: 6px }
+.live-h { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px }
+.live-h h3 { font-size: 20px }
+.livebadge { display: inline-flex; align-items: center; gap: 8px; background: var(--accent); color: #fff; font-size: 12px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; padding: 5px 12px; border-radius: 999px }
+.pulse { width: 8px; height: 8px; border-radius: 50%; background: #00EC8A; box-shadow: 0 0 0 3px rgba(0,236,138,.35) }
+.camps { border: 1px solid var(--line); border-radius: 16px; background: var(--surface); overflow: hidden }
+.camp { font: inherit; color: inherit; text-align: left; width: 100%; background: none; border: 0; border-top: 1px solid var(--line); cursor: pointer; display: grid; grid-template-columns: 120px minmax(0, 340px) minmax(0, 1fr) 24px; gap: 16px; align-items: center; padding: 16px 20px }
+.camp:first-child { border-top: 0 }
+.camp:hover { background: var(--tint) }
+.camp .cad { font-size: 12px; letter-spacing: .08em; text-transform: uppercase; font-weight: 700; color: var(--accent) }
+.camp.geo .cad { color: var(--geo) }
+.camp .ct { font-size: 18px; font-weight: 700 }
+.camp .cn { display: flex; align-items: center; gap: 12px }
+.camp .cn b { font-size: 40px; color: var(--accent); line-height: 1; font-variant-numeric: tabular-nums; min-width: 28px }
+.camp .cn > span { display: grid; gap: 2px; font-size: 16px }
+.camp .cn strong { font-weight: 700 }
+.camp .cn small { font-size: 13px; color: var(--muted) }
+.camp .go { color: var(--muted) }
+@container (max-width: 620px) { .camp { grid-template-columns: 1fr; gap: 6px } .camp .go { display: none } }
+.dfold > summary { list-style: none; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; cursor: pointer }
+.dfold > summary::-webkit-details-marker { display: none }
+.dfold[open] > summary .btn { background: var(--accent-soft); border-color: transparent; color: var(--accent) }
+.dfold[open] > summary { margin-bottom: 10px }
+.tag.rtag2 { color: var(--accent); background: var(--accent-soft); border-color: transparent }
+.stack { border: 1px solid var(--line); border-radius: 16px; background: var(--surface); overflow: hidden }
+.tier { display: grid; grid-template-columns: 260px minmax(0, 1fr); gap: 14px; padding: 14px 18px; border-top: 1px solid var(--line); align-items: start }
+.tier:first-child { border-top: 0 }
+.tier.gap { background: var(--tint) }
+.tn { display: flex; gap: 10px; align-items: flex-start }
+.tn i { width: 24px; height: 24px; border-radius: 50%; background: var(--accent); color: #fff; display: grid; place-items: center; font-style: normal; font-size: 12px; flex: none; margin-top: 2px }
+.tier.gap .tn i { background: var(--muted) }
+.tn > div { display: grid; gap: 2px }
+.tn b { font-size: 16px }
+.tn .src { font-size: 12.5px; color: var(--muted) }
+.tc { display: flex; flex-wrap: wrap; gap: 6px }
+.sig { font-size: 13.5px; padding: 4px 10px; border-radius: 999px; border: 1px solid var(--line); background: var(--bg) }
+.sig small { color: var(--muted); font-size: 11.5px }
+.sig b { color: var(--accent); margin-left: 2px }
+@container (max-width: 620px) { .tier { grid-template-columns: 1fr; gap: 8px } }
+.evl { display: grid; gap: 10px }
+.evr { border-left: 3px solid var(--accent); padding: 4px 0 4px 12px; display: grid; gap: 4px; font-size: 14.5px }
+.evh { display: flex; flex-wrap: wrap; gap: 6px 8px; align-items: center }
+.rel { font-size: 12px; color: var(--muted); border: 1px solid var(--line); border-radius: 999px; padding: 1px 8px }
+.rel.hi { color: var(--warm); border-color: var(--warm-dot) }
+.stk-h { font-size: 17px; margin-top: 6px }
+.stk { border: 1px solid var(--line); border-radius: 16px; background: var(--surface); overflow: hidden }
+.stkr { display: grid; grid-template-columns: 220px minmax(0, 1fr) 36px; gap: 12px; align-items: center; padding: 10px 16px; border-top: 1px solid var(--line) }
+.stkr:first-child { border-top: 0 }
+.stkr > div:first-child { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px }
+.stkr button.tag { font: inherit; font-size: 12px; cursor: pointer }
+.stn { font-size: 22px; color: var(--accent); text-align: right }
+.stkr > .evid { grid-column: 1 / -1 }
+.stkr > .evid:not([open]) > summary .cap { display: none }
+.sig.nw { background: var(--accent-soft); border-color: transparent; color: var(--accent) }
+@container (max-width: 620px) { .stkr { grid-template-columns: 1fr auto } .stkr .tc { grid-column: 1 / -1; grid-row: 2 } }
+.wkl { display: grid; gap: 14px; margin-bottom: 18px }
+.wkl > .row { background: var(--surface); border: 1px solid var(--line); border-left: 4px solid var(--line); border-radius: 16px; overflow: hidden; transition: border-color .15s }
+.wkl > .row:hover { border-left-color: var(--accent) }
+.wkl > .row[open] { border-color: var(--accent); border-left-color: var(--accent); box-shadow: 0 6px 22px rgba(119, 68, 255, .10) }
+.wkl > .row > summary { padding: 18px 20px 16px }
+.wkl > .row[open] > summary { background: var(--surface); border-bottom: 1px solid var(--line) }
+.wkl .r-head { align-items: center; gap: 4px 12px }
+.wkl .r-head b { font-size: 21px }
+.wn { width: 34px; height: 34px; border-radius: 50%; background: var(--accent); color: #fff; display: grid; place-items: center; font-style: normal; font-weight: 700; font-size: 16px; flex: none }
+.wkl .r-route { padding-left: 46px; margin-top: 4px }
+.wkl .r-body { background: var(--surface); padding: 16px 20px 20px 66px; position: relative }
+.wkl .r-body::before { content: ""; position: absolute; left: 36px; top: 0; bottom: 20px; width: 2px; background: var(--accent-soft) }
+@media (max-width: 640px) { .wkl .r-route { padding-left: 0 } .wkl .r-body { padding: 14px 14px 16px 26px } .wkl .r-body::before { left: 12px } .wkl .r-head b { font-size: 18px } .wn { width: 28px; height: 28px; font-size: 14px } }
+.stkline { display: flex; flex-wrap: wrap; align-items: center; gap: 6px }
+.stkc { font-size: 13px; color: var(--muted); margin-right: 4px }
+.stkc b { color: var(--accent); font-size: 16px; margin-right: 3px }
+.r-stk { grid-column: 1; margin-top: 8px }
+.wkl .r-stk { padding-left: 46px }
+.mrow .stkline, .mrow .evid { margin-top: 8px }
+.legend { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px }
+.evr.caut { background: #FFF7E0 }
+.stkr { grid-template-columns: 220px minmax(0, 1fr) !important }
+@media (max-width: 640px) { .wkl .r-stk { padding-left: 0 } .stkr { grid-template-columns: 1fr !important } }
+.pfs { display: grid; gap: 10px; margin: 6px 0 4px }
+.pf { display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: 8px; align-items: center }
+.pfl { font-family: var(--mono); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted) }
+.pfc { display: flex; flex-wrap: wrap; gap: 8px }
+.pchip { font: inherit; font-size: 14px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); border-radius: 999px; padding: 5px 12px; cursor: pointer }
+.pchip b { color: var(--muted); font-weight: 400; margin-left: 4px }
+.pchip[aria-pressed="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink) }
+.pchip[aria-pressed="true"] b { color: inherit; opacity: .7 }
+.psearch { font: inherit; font-size: 14px; padding: 9px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--ink); width: 100%; max-width: 300px; grid-column: 1 / -1 }
+.linkbtn { font: inherit; background: none; border: 0; padding: 0; color: var(--accent); cursor: pointer; text-decoration: underline; text-underline-offset: 2px }
+.ptable { border: 1px solid var(--line); border-radius: 14px; background: var(--surface); overflow-x: auto }
+.ptable table { width: 100%; border-collapse: collapse; min-width: 980px }
+.ptable th { text-align: left; font-family: var(--mono); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); background: var(--tint); padding: 12px 14px; border-bottom: 1px solid var(--line) }
+.ptable td { vertical-align: top; padding: 14px; border-top: 1px solid var(--line); font-size: 14.5px }
+.ptable tbody tr:first-child td { border-top: 0 }
+.ptable td:nth-child(1) { width: 25% } .ptable td:nth-child(5) { width: 30% }
+.pnm { display: flex; align-items: center; gap: 6px; font-weight: 700; font-size: 16px }
+.pnm a:first-child { color: var(--ink); text-decoration: none }
+.li { display: inline-flex }
+.pbtns { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px }
+.pill-a, .pill-b { font-size: 13px; text-decoration: none; border-radius: 999px; padding: 3px 10px }
+.pill-a { color: var(--accent); background: var(--accent-soft) }
+.pill-b { color: #0A66C2; background: #E8F1FB }
+.rtag { display: inline-block; font-size: 12.5px; padding: 2px 9px; border-radius: 999px; background: var(--tint); border: 1px solid var(--line); margin-bottom: 4px }
+.srcs { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 4px }
+.stag { font-size: 12.5px; padding: 2px 8px; border-radius: 6px; background: var(--tint); color: var(--muted) }
+.stag.warm { background: var(--warm-soft); color: var(--warm) }
+.stag.new { background: var(--note-soft); color: var(--note) }
+.pq { margin: 0 0 4px; color: var(--ink) }
+.pq2 { margin: 0 0 4px; color: var(--ink); font-size: 14px }
+.pmore summary { cursor: pointer; color: var(--accent); font-size: 14px; margin: 4px 0 }
+.ptags { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px }
+@media (max-width: 640px) { .pf { grid-template-columns: 1fr } }
+.dlv { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px }
+.dv { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 18px; display: grid; gap: 6px; align-content: start }
+.dv .ic { width: 48px; height: 48px; border-radius: 12px; background: #FFFFFF; border: 1px solid var(--line); display: grid; place-items: center; margin-bottom: 4px }
+@container (max-width: 620px) { .dlv { grid-template-columns: repeat(2, minmax(0, 1fr)) } }
+.levers { display: flex; flex-wrap: wrap; gap: 6px }
+.levers .way { font: inherit; font-size: 13px; font-weight: 700; border: 0; cursor: pointer }
+.plug { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px }
+.pc { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 18px; display: grid; gap: 10px; align-content: start; justify-items: start }
+.pc.note { border-top: 4px solid var(--note-dot) } .pc.warm { border-top: 4px solid var(--warm-dot) }
+.pc h3 { font-size: 18px }
+.pc ol { margin: 0; padding-left: 20px; display: grid; gap: 8px; font-size: 15px }
+@container (max-width: 620px) { .plug { grid-template-columns: 1fr } }
+.e2e { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; overflow: hidden }
+.e2e3 { padding: 18px 20px; border-bottom: 1px solid var(--line) }
+.ec { display: grid; gap: 10px; align-content: start; justify-items: start; min-width: 0; font-size: 15px }
+.e2e-row { display: grid; grid-template-columns: 170px minmax(0, 1fr); gap: 16px; padding: 18px 20px; border-bottom: 1px solid var(--line) }
+.e2e-n { display: flex; gap: 10px; align-items: center; align-self: start; font-weight: 700; font-size: 15px }
+.e2e-n i { width: 26px; height: 26px; border-radius: 50%; background: var(--accent); color: #fff; display: grid; place-items: center; font-style: normal; font-size: 13px; flex: none }
+.e2e-b { display: grid; gap: 8px; min-width: 0; font-size: 15px }
+.e2e-co { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center }
+.e2e-co b { font-size: 22px }
+.sigp { font-size: 13px; font-weight: 700; color: var(--accent); background: var(--accent-soft); padding: 3px 10px; border-radius: 999px }
+.e2e .why { border-left: 3px solid var(--accent); padding-left: 10px }
+.e2e-ppl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 16px }
+.path { display: flex; align-items: flex-start }
+.pn { display: grid; justify-items: center; text-align: center; gap: 4px; width: 128px; flex: none }
+.pn .av { width: 48px; height: 48px; font-size: 15px }
+.pn b { font-size: 14px }
+.pn .cap { font-size: 12.5px }
+.pe { flex: 1; min-width: 60px; position: relative; height: 48px; display: grid; align-items: end; justify-items: center }
+.pe::before { content: ""; position: absolute; left: 0; right: 6px; top: 24px; border-top: 2px solid var(--warm-dot) }
+.pe::after { content: ""; position: absolute; right: 0; top: 19px; border: 6px solid transparent; border-left: 8px solid var(--warm-dot); border-right: 0 }
+.pe span { position: absolute; top: 30px; left: 4px; right: 4px; font-size: 12px; color: var(--warm); text-align: center; line-height: 1.3 }
+.e2e-out { display: flex; flex-wrap: wrap; gap: 10px 12px; align-items: center; padding: 14px 20px; background: var(--warm-soft) }
+.e2e-out span { margin-right: auto; font-size: 15px }
+@container (max-width: 620px) {
+  .e2e-row { grid-template-columns: 1fr; gap: 10px }
+  .e2e-ppl { grid-template-columns: 1fr }
+  .path { flex-direction: column; align-items: flex-start }
+  .pn { grid-template-columns: 48px auto; grid-template-rows: auto auto; justify-items: start; text-align: left; width: auto; column-gap: 10px; row-gap: 0 }
+  .pn .av { grid-row: span 2 }
+  .pe { height: auto; min-height: 44px; width: auto; align-self: stretch; margin-left: 23px; display: flex; justify-content: flex-start; align-items: center }
+  .pe::before { left: 0; right: auto; top: 0; bottom: 6px; border-top: 0; border-left: 2px solid var(--warm-dot) }
+  .pe::after { left: -5px; right: auto; top: auto; bottom: 0; border: 6px solid transparent; border-top: 8px solid var(--warm-dot); border-bottom: 0 }
+  .pe span { position: static; display: block; padding: 12px 0 12px 16px; text-align: left }
+}
+footer { font-size: 12px; color: var(--muted); border-top: 1px solid var(--line); padding-top: 14px }
+@media (prefers-reduced-motion: reduce) { .chev { transition: none } }
+</style>
+
+<div class="wrap">
+  <header>
+    <div class="label">KRG Advisors · for Ross Kleinrock · week of Oct 26, 2026</div>
+    <p>A sample week of the demand engine Vieu runs for KRG: which companies to call, who to talk to, and how to reach them. Built from your Vieu workspace and public news. A preview: nothing is sent from this page.</p>
+  </header>
+  <nav role="tablist" aria-label="Views" id="tabs"></nav>
+  <div class="subnav" id="subtabs" hidden></div>
+  <main id="views"></main>
+  <footer>©Vieu 2026 • Connect to Close &nbsp;|&nbsp; Built on 9B Executive Relationships. Sample data as of Oct 26, 2026.</footer>
+</div>
+
+<script id="data" type="application/json">{"overview": {"total": 996, "fresh": 390, "freshWarm": 216, "boxes": {"warm_signal": 216, "warm_nosignal": 151, "cold_signal": 174, "cold_nosignal": 455}, "signalMix": [["Hiring comms / corporate affairs leaders", 330], ["Hiring brand & reputation leaders", 140], ["Geopolitical conflict exposure", 125], ["Hiring public affairs / GR leaders", 106], ["European infrastructure risk", 53], ["Hormuz / shipping exposure", 26], ["Uses a rival advisory (Brunswick, FTI, FGS)", 27], ["Culture-war / ESG backlash", 11]], "levers": {"warm": 3, "notes": 3, "campaign": 11, "newAccts": 15}}, "week": [{"id": "m-t-bank", "account": "M&T Bank", "industry": "Financial Services", "route": "warm", "signal": {"type": "New Chief Corporate Affairs Officer", "short": "New Chief Corporate Affairs Officer in August", "text": "Named Ryan Stanton, previously PwC's head of global reputation and issues management, Chief Corporate Affairs Officer over communications, government affairs, PR and reputation.", "date": "2026-08-04", "url": "https://newsroom.mtb.com/2026-08-04-M-T-Bank-Appoints-Ryan-Stanton-as-Chief-Corporate-Affairs-Officer", "offering": "Public affairs", "geo": false, "why": "A new corporate affairs chief usually reviews agencies and outside advisers in the first 100 days.", "ross": "Your signal #4 · new corporate affairs leader"}, "best": {"introducer": "Chris Nelson", "target": "Patrick Fitzgibbons", "title": "Senior Vice President, Sr. Public Relations Manager", "how": "Worked together at FleishmanHillard, 2012–2014"}, "draft": {"from": "Chris Nelson", "to": "Patrick Fitzgibbons, SVP Public Relations", "text": "Patrick, good to reconnect; it's been a while since FleishmanHillard. I'm now with KRG Advisors, the corporate affairs and strategic comms firm Chris Deri founded after leading corporate affairs at Weber Shandwick. I saw Ryan Stanton has joined as Chief Corporate Affairs Officer. New leaders often take a fresh look at outside counsel in their first months, and KRG works as an extension of in-house teams on issues, government affairs and reputation. Would you be open to a quick catch-up and, if it makes sense, an introduction to Ryan?\nChris", "check": "Chris Nelson approves; confirm Patrick still reports into corporate affairs"}, "play": "Chris Nelson asks Patrick Fitzgibbons for a catch-up this week, with the goal of an introduction to Ryan Stanton inside his first 100 days.", "committee": [{"name": "Ryan Stanton", "title": "Chief Corporate Affairs Officer (joined Aug 2026)", "pod": "Communications & Corporate Affairs", "role": "Decision maker", "vieuUrl": "https://newsroom.mtb.com/2026-08-04-M-T-Bank-Appoints-Ryan-Stanton-as-Chief-Corporate-Affairs-Officer", "warm": false}, {"name": "Lauren Hilliker", "title": "Senior Vice President, Reputation Management Communications", "linkedIn": "https://www.linkedin.com/in/lauren-hilliker-7a067a126", "vieuUrl": "https://www.vieu.com/account-v2?id=6adf16730fb406d14d1bedb6#pt=person&pid=PERS-7664a2d0-9525-48f8-b61b-f74e8fbef5c5", "location": "New York, New York, United States", "personId": "PERS-7664a2d0-9525-48f8-b61b-f74e8fbef5c5", "source": "Vieu stakeholders", "pod": "Communications & Corporate Affairs", "role": "Champion", "warm": false, "introducer": null, "pathType": null, "strength": null, "why": null, "connectionId": null}, {"name": "Elizabeth Dexheimer", "title": "Senior Vice President, Communications", "linkedIn": "https://www.linkedin.com/in/elizabeth-dexheimer-0183b69", "vieuUrl": "https://www.vieu.com/account-v2?id=6adf16730fb406d14d1bedb6#pt=person&pid=PERS-80c3433f-863c-4078-9a3e-60d6d20289ff", "location": "Washington, District of Columbia, United States", "personId": "PERS-80c3433f-863c-4078-9a3e-60d6d20289ff", "source": "Vieu stakeholders", "pod": "Communications & Corporate Affairs", "role": "Champion", "warm": false, "introducer": null, "pathType": null, "strength": null, "why": null, "connectionId": null}, {"name": "Russell Evans", "title": "Senior Vice President, Commercial Banking Communications", "linkedIn": "https://www.linkedin.com/in/evansrussell", "vieuUrl": "https://www.vieu.com/account-v2?id=6adf16730fb406d14d1bedb6#pt=person&pid=PERS-787f3212-cf83-4f82-8855-f3cd3b1651b0", "location": "Buffalo, New York, United States", "personId": "PERS-787f3212-cf83-4f82-8855-f3cd3b1651b0", "source": "Vieu stakeholders", "pod": "Communications & Corporate Affairs", "role": "Champion", "warm": false, "introducer": null, "pathType": null, "strength": null, "why": null, "connectionId": null}, {"name": "Patrick Fitzgibbons", "title": "Senior Vice President, Sr. Public Relations Manager", "pod": "Communications & Corporate Affairs", "role": "Champion", "warm": true, "introducer": "Chris Nelson", "pathType": "Shared history", "vieuUrl": null, "linkedIn": null}, {"name": "Laura O'Hara", "title": "Senior Executive Vice President & Chief Legal Officer", "pod": "Legal & Investor Relations", "role": "Legal", "warm": false, "linkedIn": "https://www.linkedin.com/in/laura-o-hara-18bb67a3", "vieuUrl": "https://www.vieu.com/account-v2?id=6adf16730fb406d14d1bedb6#pt=person&pid=PERS-63fd627d-5655-42a2-81fe-1bc57c605231"}, {"name": "Rajiv Ranjan", "title": "Head of Investor Relations & Corporate Development", "pod": "Legal & Investor Relations", "role": "Investor relations", "warm": false, "linkedIn": null, "vieuUrl": null, "sourceUrl": "https://www.stockanalysis.com/stocks/mtb/company/", "check": ""}], "segment": 2}, {"id": "nasdaq", "account": "Nasdaq", "industry": "Financial Services", "route": "warm", "signal": {"type": "CEO repositions around AI", "short": "CEO pitches an AI-driven, always-on market; hiring comms; uses FTI", "text": "In Q3 results, CEO Adena Friedman described markets moving to an AI-driven, always-on future, while Nasdaq is hiring communications leaders and already uses FTI.", "date": "2026-10-22", "url": "https://www.sec.gov/Archives/edgar/data/0001120193/000112019326000017/earningsrelease3q26ex-991.htm", "offering": "Strategic comms", "geo": false, "why": "Nasdaq is selling a new AI market story while building its comms team and using a big-firm adviser: room for a senior boutique alongside.", "ross": "Your signals #22 #8 · plus comms hiring"}, "best": {"introducer": "Chris Deri", "target": "Marleen Geerlof", "title": "Senior Vice President Corporate Communications", "how": "Worked together at Teneo, 2019–2021"}, "draft": {"from": "Chris Deri", "to": "Marleen Geerlof, Senior Vice President Corporate Communications", "text": "Marleen, I hope you're well. Since Teneo I've started KRG Advisors, a strategic comms and corporate advisory firm with senior advisers across corporate affairs, public affairs and geopolitical risk. I've seen Nasdaq adding to its communications team, and with market structure, policy and geopolitics all in the headlines, I imagine your agenda is full. I'd love to compare notes on what you're seeing and where an outside view helps. Could we find 20 minutes in the next couple of weeks?\nChris", "check": ""}, "play": "Chris Deri writes to Marleen Geerlof; Ross joins the call.", "committee": [{"name": "Marleen Geerlof", "title": "Senior Vice President Corporate Communications", "linkedIn": "https://www.linkedin.com/in/marleen-geerlof-86104616", "vieuUrl": "https://www.vieu.com/account-v2?id=6adf0af06995e6110ef7f9ab#pt=person&pid=PERS-d8cedd80-b099-48c0-9984-91a14a72c566", "location": "New York City Metropolitan Area", "pod": "Communications & Corporate Affairs", "role": "Decision maker", "warm": true, "introducer": "Chris Deri", "pathType": "Shared history", "strength": "moderate", "why": "Worked together at Teneo, 2019–2021"}, {"name": "Will Briganti", "title": "AVP, Head of Enterprise Communications", "linkedIn": "https://www.linkedin.com/in/willbriganti", "vieuUrl": "https://www.vieu.com/account-v2?id=6adf0af06995e6110ef7f9ab#pt=person&pid=PERS-40d1ee07-a4a8-4bb9-886a-a4d5c5331b8b", "location": "Atlanta, Georgia, United States", "pod": "Communications & Corporate Affairs", "role": "Champion", "warm": true, "introducer": "Chris Deri", "pathType": "Shared history", "strength": "moderate", "why": "Worked together at Edelman, 2005–2007"}, {"name": "David Lurie", "title": "Head of External Relations", "linkedIn": "https://www.linkedin.com/in/djlurie", "vieuUrl": "https://www.vieu.com/home#pt=person&pid=PERS-7523be59-bbfe-40a6-80b7-0dd117e5cc57", "location": "United States", "pod": "Communications & Corporate Affairs", "role": "Champion", "warm": true, "introducer": "Chris Deri", "pathType": "Shared history", "strength": "moderate", "why": "Worked together at Teneo, 2022–2022"}, {"name": "Caity Kauffman", "title": "Global Head of Digital Communications and Social Media", "linkedIn": "https://www.linkedin.com/in/caitykauffman", "vieuUrl": "https://www.vieu.com/account-v2?id=6adf0af06995e6110ef7f9ab#pt=person&pid=PERS-ba207119-0083-4bec-a9a1-6769fcbb7c85", "location": "New York, New York, United States", "pod": "Communications & Corporate Affairs", "role": "Champion", "warm": false, "introducer": null, "pathType": null, "strength": null, "why": null}, {"name": "Terry Campbell", "title": "Senior Vice President, Global Government Relations", "linkedIn": "https://www.linkedin.com/in/terry-campbell-124ab26", "vieuUrl": "https://www.vieu.com/account-v2?id=6adf0af06995e6110ef7f9ab#pt=person&pid=PERS-4a04c0f6-1f5c-4e85-879c-218d8c6476d5", "location": "Washington, District of Columbia, United States", "pod": "Public Affairs & Government Relations", "role": "Champion", "warm": false, "introducer": null, "pathType": null, "strength": null, "why": null}, {"name": "Elina Yrgård", "title": "Associate Vice President, EU Affairs, Global Government Relations", "linkedIn": "https://www.linkedin.com/in/elina-yrgård-1aa0671a", "vieuUrl": "https://www.vieu.com/account-v2?id=6adf0af06995e6110ef7f9ab#pt=person&pid=PERS-3fda1078-bb31-43ed-b6f8-d915ae083ff4", "location": "Brussels Metropolitan Area", "pod": "Public Affairs & Government Relations", "role": "Champion", "warm": false, "introducer": null, "pathType": null, "strength": null, "why": null}, {"name": "Adena Friedman", "title": "Chair and Chief Executive Officer", "linkedIn": "https://www.linkedin.com/in/adenatfriedman", "vieuUrl": "https://www.vieu.com/home#pt=person&pid=PERS-6e2857e2-526c-404e-bcf2-15422f2751ae", "location": null, "pod": "Executive Sponsors", "role": "Executive sponsor", "warm": false, "introducer": null, "pathType": null, "strength": null, "why": null}], "segment": 2}, {"id": "chemours", "account": "The Chemours Company", "industry": "Chemicals", "route": "note", "signal": {"type": "PFAS settlement and class action", "short": "$455M PFAS settlement; class action; CEO on AI data-centre demand", "text": "Chemours, DuPont and Corteva agreed to pay $455M to settle North Carolina's PFAS claims; a securities class action followed in October.", "date": "2026-09-10", "url": "https://www.sec.gov/Archives/edgar/data/0001627223/000162722326000029/cc-20260910.htm", "offering": "Strategic comms", "geo": false, "why": "Settlement, litigation and a fresh ESG report land at once: Chemours needs one story for regulators, communities and investors.", "ross": "Your signals #14 #13 · data-centre theme"}, "draft": {"from": "Ross Kleinrock", "to": "Michelle Bauer, Chief Communications Officer", "text": "Michelle,\n\nThe North Carolina PFAS settlement closes one chapter, but with the October class action and PFAS still in the news, the story Chemours tells next matters as much as the numbers.\n\nKRG Advisors is a senior-led firm that works with communications chiefs on exactly this mix of litigation, regulation and reputation. We've put together a short brief on how companies in a similar position rebuilt trust with regulators, communities and investors.\n\nWould it be useful if I sent it over?\n\nRoss Kleinrock\nKRG Advisors", "check": ""}, "play": "Ross sends a signal-led email to Michelle Bauer with a free two-page brief.", "committee": [{"name": "Michelle Bauer", "title": "Chief Communications Officer", "linkedIn": "https://www.linkedin.com/in/michellebauercomms", "vieuUrl": "https://www.vieu.com/account-v2?id=6adf0b006995e6110ef7fa4d#pt=person&pid=PERS-509e9b08-792f-40e4-869c-25d3455e2017", "location": "Philadelphia, Pennsylvania, United States", "pod": "Communications & Corporate Affairs", "role": "Decision maker", "warm": false, "introducer": null, "pathType": null, "strength": null, "why": null}, {"name": "Catelijne Wessels", "title": "Head of Communications (Nl/Be/Fr)", "linkedIn": "https://www.linkedin.com/in/catelijne-wessels", "vieuUrl": "https://www.vieu.com/account-v2?id=6adf0b006995e6110ef7fa4d#pt=person&pid=PERS-a19867fa-e003-404d-ab96-1b6794f412f9", "location": "Amsterdam, Noord-Holland, Nederland", "pod": "Communications & Corporate Affairs", "role": "Champion", "warm": false, "introducer": null, "pathType": null, "strength": null, "why": null}, {"name": "Heather Connors", "title": "Global Business Communications & Digital Communications Director", "linkedIn": "https://www.linkedin.com/in/heather-connors", "vieuUrl": "https://www.vieu.com/account-v2?id=6adf0b006995e6110ef7fa4d#pt=person&pid=PERS-b09443f0-32d3-4eb4-9635-afefc37ed40d", "location": "Greater Philadelphia", "pod": "Communications & Corporate Affairs", "role": "Practitioner", "warm": false, "introducer": null, "pathType": null, "strength": null, "why": null}, {"name": "Greg Smith", "title": "Vice President - Government Affairs", "linkedIn": "https://www.linkedin.com/in/greg-smith-b58b632a", "vieuUrl": "https://www.vieu.com/account-v2?id=6adf0b006995e6110ef7fa4d#pt=person&pid=PERS-dfb1657c-af98-4994-a383-24ba139972d0", "location": "Washington, District of Columbia, United States", "pod": "Public Affairs & Government Relations", "role": "Champion", "warm": false, "introducer": null, "pathType": null, "strength": null, "why": null}, {"name": "Denise Dignam", "title": "President and Chief Executive Officer", "linkedIn": "https://www.linkedin.com/in/denise-dignam-24972816", "vieuUrl": "https://www.vieu.com/account-v2?id=6adf0b006995e6110ef7fa4d#pt=person&pid=PERS-c60eeca9-4d5d-4dd0-b715-8e24cfffa5ca", "location": "Greater Philadelphia", "pod": "Executive Sponsors", "role": "Executive sponsor", "warm": false, "introducer": null, "pathType": null, "strength": null, "why": null}], "segment": 2}, {"id": "mongodb", "account": "MongoDB", "industry": "Software Development", "route": "note", "signal": {"type": "CEO exit", "short": "CEO left for Meta; AI repositioning at Investor Day", "text": "CEO CJ Desai left with immediate effect to join Meta; former CEO Dev Ittycheria is back as interim CEO while the board searches.", "date": "2026-09-28", "url": "https://www.prnewswire.com/news-releases/mongodb-announces-ceo-transition-302891360.html", "offering": "Strategic comms", "geo": false, "why": "Two leadership handovers in a year means keeping investors, customers and staff confident through the search.", "ross": "Your signal #22 · repositioning around AI"}, "best": null, "draft": {"from": "Ross Kleinrock", "to": "Lindsey (Latham) Onwuzurike, Sr. Director, Head of Global Communications", "text": "Hey Lindsey,\nWe pulled together an exposure brief that shows risk and opportunity areas for MongoDB's customers, investors and employees related to the CEO transition. Want me to send over the free two-page analysis?\nBefore you announce the next CEO, we show you how customers, investors and employees are likely to react.\n[Case study]\nBest,\nRoss", "check": "Confirm Lindsey still leads global communications; add one case study"}, "play": "Ross offers Lindsey Onwuzurike a free exposure brief on the CEO transition; follow her posts for a second touch.", "committee": [{"name": "Dev Ittycheria", "title": "Interim President and CEO", "pod": "Executive Sponsors", "role": "Executive sponsor", "vieuUrl": "https://www.prnewswire.com/news-releases/mongodb-announces-ceo-transition-302891360.html", "warm": false}, {"name": "Lindsey (Latham) Onwuzurike", "title": "Sr. Director, Head of Global Communications", "linkedIn": "https://www.linkedin.com/in/lindseylatham", "vieuUrl": "https://www.vieu.com/account-v2?id=6adf16746995e6110ef84cfd#pt=person&pid=PERS-205282cc-5b80-42e9-8b24-56d6b958b366", "location": "Los Angeles Metropolitan Area", "personId": "PERS-205282cc-5b80-42e9-8b24-56d6b958b366", "source": "Vieu stakeholders", "pod": "Communications & Corporate Affairs", "role": "Decision maker", "warm": false, "introducer": null, "pathType": null, "strength": null, "why": null, "connectionId": null}, {"name": "Tom McMahon", "title": "Head of EMEA Communications", "linkedIn": "https://www.linkedin.com/in/tomalexmcmahon", "vieuUrl": "https://www.vieu.com/account-v2?id=6adf16746995e6110ef84cfd#pt=person&pid=PERS-e3e2da80-9cff-4b7a-ab64-c4029284dc2c", "location": "York, England, United Kingdom", "personId": "PERS-e3e2da80-9cff-4b7a-ab64-c4029284dc2c", "source": "Vieu stakeholders", "pod": "Communications & Corporate Affairs", "role": "Champion", "warm": false, "introducer": null, "pathType": null, "strength": null, "why": null, "connectionId": null}, {"name": "Jannie Meskers", "title": "Senior Director, Global Corporate Communications", "linkedIn": "https://www.linkedin.com/in/jannie-meskers-4570aa74", "vieuUrl": "https://www.vieu.com/account-v2?id=6adf16746995e6110ef84cfd#pt=person&pid=PERS-4daeed8e-bc2d-413d-a4ac-4ffdb0e7b6f5", "location": "San Francisco Bay Area", "personId": "PERS-4daeed8e-bc2d-413d-a4ac-4ffdb0e7b6f5", "source": "Vieu stakeholders", "pod": "Communications & Corporate Affairs", "role": "Practitioner", "warm": false, "introducer": null, "pathType": null, "strength": null, "why": null, "connectionId": null}, {"name": "Kristin  Harlan", "title": "Senior Director External Communications", "linkedIn": "https://www.linkedin.com/in/kristin-harlan-052b763", "vieuUrl": "https://www.vieu.com/account-v2?id=6adf16746995e6110ef84cfd#pt=person&pid=PERS-b1565acc-21d6-4049-8e27-090a236a1bbb", "location": "San Francisco, California, United States", "personId": "PERS-b1565acc-21d6-4049-8e27-090a236a1bbb", "source": "Vieu stakeholders", "pod": "Communications & Corporate Affairs", "role": "Practitioner", "warm": false, "introducer": null, "pathType": null, "strength": null, "why": null, "connectionId": null}, {"name": "Andrew Stephens", "title": "Chief Legal Officer", "pod": "Legal & Investor Relations", "role": "Legal", "warm": false, "linkedIn": "https://www.linkedin.com/in/andrewstephens", "vieuUrl": "https://www.vieu.com/account-v2?id=6adf16746995e6110ef84cfd#pt=person&pid=PERS-915a68d5-9727-44cc-8fa4-6d297cf32266"}, {"name": "Jess Lubert", "title": "Vice President, Investor Relations", "pod": "Legal & Investor Relations", "role": "Investor relations", "warm": false, "linkedIn": null, "vieuUrl": null, "sourceUrl": "https://seekingalpha.com/article/4849098-mongodb-inc-mdb-q3-2026-earnings-call-transcript", "check": ""}], "segment": 2}], "also": [{"account": "Shake Shack", "industry": "Hospitality", "signal": "Activist investor: Starboard took a large stake", "route": "note", "best": null, "lead": "Luke DeRouen, Chief Communications Officer"}, {"account": "Snap Inc.", "industry": "Software Development", "signal": "State AG lawsuit: Pennsylvania AG sued over teen safety", "route": "warm", "best": {"introducer": "Nathan Strauss", "target": "Jodi Seth", "title": "Global Head of Policy Communications"}, "lead": null}, {"account": "Coinbase", "industry": "Financial Services", "signal": "Regulatory fine: The Central Bank of Ireland fined Coinbase Ireland EUR 3.25M for customer-fund safeguarding failures, its second EU penalty in a year.", "route": "exec", "best": {"introducer": "Nathan Strauss", "target": "Brian Armstrong", "title": "CEO & Co-Founder"}, "lead": "Natasha LaBranche, Senior Director, Head of Corporate and Executive Communications"}, {"account": "Braze", "industry": "Software Development", "signal": "Acquisition: Salesforce agreed to acquire Braze for about $5.66B.", "route": "note", "best": null, "lead": null}, {"account": "Roblox", "industry": "Software Development", "signal": "AG settlement: Settled with the Kansas Attorney General for $9.8M plus a child-safety campaign, agreeing to age checks for all users.", "route": "note", "best": null, "lead": null}, {"account": "Zoetis", "industry": "Pharmaceutical Manufacturing", "signal": "Hiring corporate affairs and public affairs leaders, and already pays Brunswick for outside counsel.", "route": "warm", "best": {"introducer": "Chris Nelson", "target": "Jennifer Albano", "title": "Vice President, Head of Global Corporate Communications"}}], "campaign": {"adviser": {"name": "Aidan Harte", "title": "Adviser, KRG Advisors (geopolitical risk, strategic communications)", "bio": "More than 13 years advancing U.S. national security goals in contested environments, including as USAID Office of Transition Initiatives Country Representative in Moldova running counter-influence programs against Kremlin hybrid warfare; stabilization work in Armenia, Iraq and Syria; uses AI, OSINT and public-opinion research to counter hostile narratives.", "bioSources": ["https://krgadvisors.com/team", "https://www.irregularwarfare.org/aidan-harte/"], "thesis": "When a geopolitical supply shock ends, the risk moves to narrative: crisis, high prices, visible earnings, then political backlash. Companies should document why prices or margins look the way they do, brief legislators early and build coalitions before scrutiny arrives.", "thesisSource": "https://krgadvisors.com/article/how-the-iran-mou-increases-narrative-risk-for-american-industry"}, "accounts": [{"account": "Lucid Motors", "onList": true, "hqCountry": "US", "exposureType": "Conflict-region operations · Saudi Arabia", "signal": "Its Saudi plant is moving into full industrialization with PIF as largest shareholder, while Houthi strikes hit Saudi airports and Aramco sites in October.", "signalDate": "2026-10-14", "sourceUrl": "https://lucidityinsights.com/news/lucid-reports-us405m-q2-revenue", "angle": "Its Saudi factory sits in an active strike zone; it needs a plan for how it talks to employees, investors and U.S. officials about safety and continuity.", "revenueApprox": null, "route": "warm", "introducer": "Chris Deri", "to": {"name": "Nick Twork", "title": "Chief Communications Officer"}, "draft": {"from": "Aidan Harte, introduced by Chris Deri", "text": "Nick, Chris Deri suggested I reach out. I advise companies on geopolitical risk at KRG Advisors, after years working in conflict environments including Iraq and Syria. With the Saudi plant moving into full production and Houthi strikes reaching Saudi airports and Aramco sites this month, employees, investors and U.S. officials will all ask about safety and continuity. Having a clear, consistent answer before something happens is much easier than building one during an incident. I'd be glad to share how others with Gulf operations are preparing. Would 20 minutes work?\nAidan Harte", "check": "Aidan approves; confirm recipient still in role"}, "segment": 1}, {"account": "Under Armour", "onList": true, "hqCountry": "US", "exposureType": "Middle East conflict · tariffs", "signal": "Q1 FY27 outlook built in ~$35M of headwinds from Middle East conflict, while margins were lifted by IEEPA tariff refunds (~$70M assumed for the year).", "signalDate": "2026-08-07", "sourceUrl": "https://fashionunited.com/news/business/under-armour-navigates-challenging-consumer-environment-in-q1-2027/2026080773981", "angle": "A tariff-refund windfall next to conflict headwinds is exactly the pattern that draws political scrutiny; get the explanation out first.", "revenueApprox": null, "route": "warm", "introducer": "Bob Knott", "to": {"name": "Matt Dornic", "title": "Chief Communications Officer"}, "draft": {"from": "Aidan Harte, introduced by Bob Knott", "text": "Matt, Bob Knott suggested we talk. I advise companies on geopolitical risk at KRG Advisors. Your Q1 outlook built in Middle East conflict headwinds while IEEPA tariff refunds lifted margins. I wrote this summer about a pattern I keep seeing: crisis, then high prices, then visible earnings, then political backlash. A tariff-refund benefit is exactly the kind of number that gets pulled into that story. The companies that come through it explain the numbers before anyone asks. I'd value 20 minutes to share how others are handling it.\nAidan Harte", "check": "Aidan approves; confirm recipient still in role"}, "segment": 1}, {"account": "SharkNinja", "onList": true, "hqCountry": "US", "exposureType": "Tariffs · Asia sourcing", "signal": "Tariffs were the main margin headwind; it filed ~$247M in CBP tariff refund claims that were accepted, lifting guidance.", "signalDate": "2026-08-05", "sourceUrl": "https://www.sec.gov/Archives/edgar/data/0001957132/000195713226000047/exhibit991pressreleaseofsh.htm", "angle": "A $247M refund plus Asia-heavy sourcing makes it a visible tariff story; set the position on pricing and sourcing before Washington does.", "revenueApprox": null, "route": "note", "introducer": null, "to": {"name": "Jason Schlossberg", "title": "Chief Communications Officer"}, "draft": {"from": "Aidan Harte", "text": "Hey Jason,\nWe pulled together an exposure brief that shows risk and opportunity areas for SharkNinja's customers, policymakers and investors related to its $247M in accepted tariff refund claims. Want me to send over the free two-page analysis?\nOnce refunds and margins are public, the question becomes who benefited. Before you act on pricing and sourcing, we show you how customers, policymakers and investors are likely to react.\nBest,\nAidan", "check": "Aidan approves; confirm recipient still in role"}, "segment": 1}, {"account": "Constellation Brands", "onList": true, "hqCountry": "US", "exposureType": "Tariffs · Mexico production", "signal": "Q2 FY27 10-Q: beer tariff costs (mostly Section 232 aluminum) moved materially while it keeps adding Mexican brewery capacity; Veracruz start slips to early FY28.", "signalDate": "2026-10-07", "sourceUrl": "https://www.sec.gov/Archives/edgar/data/0000016918/000001691826000040/stz-20260831.htm", "angle": "Mexican-brewed beer in tariffed cans needs a cross-border trade story ready for Washington and Mexico City.", "revenueApprox": null, "route": "note", "introducer": null, "to": {"name": "Michael McGrew", "title": "EVP & Chief Communications, CSR & Inclusion Officer"}, "draft": {"from": "Aidan Harte", "text": "Hey Michael,\nWe pulled together an exposure brief that shows risk and opportunity areas for Constellation's customers, policymakers and investors related to aluminum tariffs on Mexican-brewed beer. Want me to send over the free two-page analysis?\nWe show companies where their exposures and opportunities are with officials in Washington and Mexico City on cross-border trade.\nBest,\nAidan", "check": "Aidan approves; confirm recipient still in role"}, "segment": 1}, {"account": "Palantir Technologies", "onList": true, "hqCountry": "US", "exposureType": "Russia/Ukraine · European tech sovereignty", "signal": "Ukraine's former defense minister is launching a Karp-backed military-tech firm as Europe works to cut its dependence on Palantir.", "signalDate": "2026-09-03", "sourceUrl": "https://semafor.com/article/09/03/2026/ukrainian-ex-defense-minister-launches-palantir-backed-military-tech-firm", "angle": "Keep standing with European governments while Europe's sovereignty push gathers pace.", "revenueApprox": null, "route": "note", "introducer": null, "to": {"name": "Lisa Beth Gordon", "title": "Head of Global Communications"}, "draft": {"from": "Aidan Harte", "text": "Hey Lisa Beth,\nWe pulled together an exposure brief that shows risk and opportunity areas for Palantir's European government customers and policymakers related to Europe's push for technology sovereignty. Want me to send over the free two-page analysis?\nBefore you act on Europe, we show you how governments, policymakers and media there are likely to react.\nBest,\nAidan", "check": "Aidan approves; confirm recipient still in role"}, "segment": 1}], "buildTime": "Under a day", "brief": "Theme: companies whose operations, margins or ownership are being moved by conflict, sanctions or tariffs right now. Why now: Houthi strikes on Saudi infrastructure, Hormuz disruption and tariff refunds have all landed in the last 90 days. Who: the head of communications or public affairs. How many: 11 accounts, each with a draft in Aidan's voice drawn from his published view.", "briefParts": [["Theme", "Companies whose operations, margins or ownership are being moved by conflict, sanctions or tariffs right now."], ["Why now", "Houthi strikes on Saudi infrastructure, Hormuz disruption and tariff refunds have all landed in the last 90 days."], ["Who", "The head of communications or public affairs at each company."], ["How many", "5 US-headquartered accounts from your list, each with a draft in Aidan's voice."]]}, "monthly": {"accounts": [{"company": "Authentic Brands Group", "hqCountry": "United States", "signalType": "New CCO", "signal": "Appointed Lark-Marie Antón, formerly CCO at USA TODAY Co., to a newly created CCO role on the executive committee.", "signalDate": "2026-10-13", "sourceUrl": "https://www.odwyerpr.com/story/public/25442/2026-10-13/usats-antn-joins-authentic-brands.html", "revenueApprox": "~$2.8B (private, estimate)", "geo": false, "lead": {"name": "Lark-Marie Antón", "title": "Chief Communications Officer (new)", "vieuUrl": "https://www.odwyerpr.com/story/public/25442/2026-10-13/usats-antn-joins-authentic-brands.html"}, "route": "exec", "introducer": "Jonathan Adashek", "target": "Jamie Salter", "targetTitle": "Founder, Executive Chairman", "family": "New comms leader", "why": "New comms heads review agencies and advisers in their first 100 days.", "segment": 2, "ross": "Your signal #17 · new head of comms"}, {"company": "Michael Baker International", "hqCountry": "United States", "signalType": "New CCO", "signal": "Hired Chris Phillips, formerly head of external communications at Bentley Systems, as Chief Communications Officer.", "signalDate": "2026-10-07", "sourceUrl": "https://www.odwyerpr.com/story/public/25419/2026-10-07/phillips-takes-post-at-michael-baker-intl.html", "revenueApprox": "~$1.3B (private, estimate)", "geo": false, "lead": {"name": "Chris Phillips", "title": "Chief Communications Officer (new)", "vieuUrl": "https://www.odwyerpr.com/story/public/25419/2026-10-07/phillips-takes-post-at-michael-baker-intl.html"}, "route": "note", "introducer": null, "target": null, "targetTitle": null, "family": "New comms leader", "why": "New comms heads review agencies and advisers in their first 100 days.", "segment": 2, "ross": "Your signal #17 · new head of comms"}, {"company": "National Fuel Gas Company", "hqCountry": "United States", "signalType": "Spin-off, data-centre demand", "signal": "Board approved spinning off its upstream and gathering business, citing rising gas demand from data centres; its pipeline to a data-centre site is due in service in late 2026.", "signalDate": "2026-10-14", "sourceUrl": "https://worldoil.com/news/2026/10/14/national-fuel-to-spin-off-appalachian-upstream-gathering-business/", "revenueApprox": "~$1.9B (FY2024)", "geo": false, "lead": {"name": "Summer Handzlik", "title": "Director of Corporate Communications", "vieuUrl": "https://www.vieu.com/account-v2?id=6adf155d6995e6110ef84499#pt=person&pid=PERS-57f8dab8-e687-4000-bcc2-63e6f07bfad3"}, "route": "note", "introducer": null, "target": null, "targetTitle": null, "family": "Deal", "why": "Deals need every audience kept on side until close.", "segment": 2, "ross": "Your theme · data centres"}, {"company": "Vail Resorts", "hqCountry": "United States", "signalType": "Proxy fight", "signal": "Oasis Management (9.6%) is running a proxy fight for four board seats; Vail has responded publicly in SEC filings.", "signalDate": "2026-10-20", "sourceUrl": "https://www.kpcw.org/ski-resorts/2026-10-20/vail-says-park-city-billionaire-is-influencing-oasis-board-bid", "revenueApprox": "~$3.0B (FY2025)", "geo": false, "lead": {"name": "Brendan McGuire", "title": "Vice President of Public Affairs", "vieuUrl": "https://www.vieu.com/account-v2?id=6adf15550fb406d14d1be597#pt=person&pid=PERS-7190a937-5628-4aa8-b366-7a9519de72cb"}, "route": "note", "introducer": null, "target": null, "targetTitle": null, "family": "Activist investor", "why": "Activists campaign in public; the company needs its story out first.", "segment": 2}, {"company": "Solstice Advanced Materials", "hqCountry": "United States", "signalType": "Activist investor", "signal": "Starboard Value reportedly built a top-10 stake and is pushing for $100M in cost cuts and a sharper focus.", "signalDate": "2026-10-20", "sourceUrl": "https://www.tipranks.com/news/activist-investor-starboard-takes-stake-in-solstice-demands-100m-in-cost-cuts", "revenueApprox": "~$3.8B (FY2024)", "geo": false, "lead": {"name": "Lawrence Kast", "title": "Senior Vice President, Global Government Relations", "vieuUrl": "https://www.vieu.com/account-v2?id=6adf15540fb406d14d1be56e#pt=person&pid=PERS-eb231e76-69c6-46fb-8745-a9c05a7f2ca4"}, "route": "note", "introducer": null, "target": null, "targetTitle": null, "family": "Activist investor", "why": "Activists campaign in public; the company needs its story out first.", "segment": 2}, {"company": "EPAM Systems", "hqCountry": "United States", "signalType": "Activist investor", "signal": "Engine Capital is pressing for a large buyback or a strategic review after the stock fell about 44%.", "signalDate": "2026-08-31", "sourceUrl": "https://www.thestar.com.my/tech/tech-news/2026/08/31/engine-capital-pushes-epam-for-share-buybacks-or-sale-source-says", "revenueApprox": "~$4.7B (FY2024)", "geo": false, "lead": {"name": "Anna Dziedzic-Kurek", "title": "Director, Communications | Head of Communications EMEA", "vieuUrl": "https://www.vieu.com/account-v2?id=6adf15560fb406d14d1be5ab#pt=person&pid=PERS-7b9a1559-cdb7-4c09-b3f4-4ee86ecf71eb"}, "route": "note", "introducer": null, "target": null, "targetTitle": null, "family": "Activist investor", "why": "Activists campaign in public; the company needs its story out first.", "segment": 2}], "gate": "US-headquartered with international operations, $500M–$10B in revenue", "note": "Revenue figures are approximate and from public filings or estimates (private companies). Comms leads come from Vieu; those marked new come from the signal itself. Everyone is checked before outreach.", "totalFound": 15}, "advisers": [{"name": "Chris Nelson", "asks": [{"account": "M&T Bank", "target": "Patrick Fitzgibbons", "title": "SVP Public Relations", "how": "FleishmanHillard, 2012–14", "signal": "New Chief Corporate Affairs Officer"}]}, {"name": "Nathan Strauss", "asks": [{"account": "Snap Inc.", "target": "Jodi Seth", "title": "Global Head of Policy Communications", "how": "Amazon, 2021–22", "signal": "Pennsylvania AG suit"}]}, {"name": "Chris Deri", "asks": [{"account": "Lucid Motors", "target": "Nick Twork", "title": "Chief Communications Officer", "how": "Connected on LinkedIn", "signal": "Saudi plant in a strike zone (campaign)"}]}, {"name": "Bob Knott", "asks": [{"account": "Under Armour", "target": "Jared Allen", "title": "Principal, Reputation and Strategy", "how": "Shared work history", "signal": "Conflict headwinds and tariff refunds (campaign)"}]}, {"name": "Aidan Harte", "asks": [{"account": "SharkNinja", "target": "Jason Schlossberg", "title": "Chief Communications Officer", "how": "Approve a draft in his name", "signal": "Tariffs · Asia sourcing"}, {"account": "Constellation Brands", "target": "Michael McGrew", "title": "EVP & Chief Communications, CSR & Inclusion Officer", "how": "Approve a draft in his name", "signal": "Tariffs · Mexico production"}, {"account": "Palantir Technologies", "target": "Lisa Beth Gordon", "title": "Head of Global Communications", "how": "Approve a draft in his name", "signal": "Russia/Ukraine · European tech sovereignty"}]}], "events": {"appearances": [{"person": "Jeannette Ferran Astorga", "company": "Zoetis", "title": "EVP, Corporate Affairs", "event": "The Conference Board Corporate Citizenship Summit", "year": 2026, "role": "Speaker, 'Nature, Risk, and the Roots of Resiliency'", "city": "New York, NY", "sourceUrl": "https://www.conference-board.org/events/attendeePortal/corporate-responsibility-summit", "nextEdition": "Apr 13–14, 2027 · New York", "nextEditionSource": "https://www.conference-board.org/events/corporate-citizenship"}, {"person": "Michelle Bauer", "company": "The Chemours Company", "title": "Chief Communications Officer", "event": "Ragan AI Horizons Conference", "year": 2026, "role": "Speaker on psychological safety and AI adoption", "city": "Fort Lauderdale, FL", "sourceUrl": "https://www.ragan.com/top-takeaways-from-ragans-ai-horizons-conference-2026/", "nextEdition": "Feb 1–3, 2027 · Carlsbad, CA", "nextEditionSource": "https://www.ragan.com/press-releases/ragan-announces-ai-horizons-conference-feb-1-3-2027-in-carlsbad-california/"}, {"person": "Terry Campbell", "company": "Nasdaq", "title": "SVP, Global Government Relations", "event": "U.S. Chamber Capital Markets Summit", "year": 2026, "role": "Panelist, 'Corporate Governance: Key Policy Priorities'", "city": "Washington, DC", "sourceUrl": "https://events.uschamber.com/2026ccmcsummit/session/4166675/corporate-governance-key-policy-priorities-and-looking-ahead", "nextEdition": "Usually early June · Washington, DC (2027 date not published)", "nextEditionSource": "https://events.uschamber.com/2026ccmcsummit"}, {"person": "Michele Baer", "company": "Zoetis", "title": "VP, Global Commercial Communications", "event": "Fierce Pharma PR & Communications Summit", "year": 2024, "role": "Speaker (then at Boehringer Ingelheim)", "city": "US", "sourceUrl": "https://pharmaprcommunications2024.sched.com/directory/speakers", "nextEdition": "2027 date not published", "nextEditionSource": ""}, {"person": "Kristin Peck", "company": "Zoetis", "title": "Chief Executive Officer", "event": "Semafor World Economy", "year": 2026, "role": "Speaker, 'Rethinking Global Business'", "city": "Washington, DC", "sourceUrl": "https://www.semafor.com/live/semafor-world-economy-2026", "nextEdition": "April 2027 · Washington, DC (dates unconfirmed)", "nextEditionSource": ""}, {"person": "Tim Spence", "company": "Fifth Third Bank", "title": "Chairman, President and CEO", "event": "Semafor World Economy", "year": 2026, "role": "Speaker, 'The Economics of Infrastructure'", "city": "Washington, DC", "sourceUrl": "https://www.semafor.com/live/semafor-world-economy-2026", "nextEdition": "April 2027 · Washington, DC (dates unconfirmed)", "nextEditionSource": ""}, {"person": "Adena Friedman", "company": "Nasdaq", "title": "Chair and CEO", "event": "Milken Institute Asia Summit", "year": 2026, "role": "Featured speaker", "city": "Singapore", "sourceUrl": "https://milkeninstitute.org/events/asia-summit-2026", "nextEdition": "2027 dates not published", "nextEditionSource": ""}, {"person": "Adena Friedman", "company": "Nasdaq", "title": "Chair and CEO", "event": "Economic Club of Washington, D.C.", "year": 2026, "role": "Interviewed by David Rubenstein", "city": "Washington, DC", "sourceUrl": "https://www.economicclub.org/events/adena-t-friedman-0", "nextEdition": "One-off", "nextEditionSource": ""}], "venues": [{"event": "Page Spring Summit", "organizer": "Page (Arthur W. Page Society)", "nextDates": "Mar 23–24, 2027", "city": "New York, NY", "sourceUrl": "https://page.org/events", "why": "Senior CCOs and corporate affairs heads, in New York"}, {"event": "Corporate Communications & Brand Summit", "organizer": "The Conference Board", "nextDates": "Mar 2–3, 2027", "city": "Brooklyn, NY", "sourceUrl": "https://www.conference-board.org/north-america/conferences/communications", "why": "Corporate comms leaders from large companies, in New York"}, {"event": "Corporate Citizenship Summit", "organizer": "The Conference Board", "nextDates": "Apr 13–14, 2027", "city": "New York, NY", "sourceUrl": "https://www.conference-board.org/events/corporate-citizenship", "why": "Zoetis' EVP Corporate Affairs spoke at the 2026 edition"}], "dinner": [{"name": "Lauren Hilliker", "title": "Senior Vice President, Reputation Management Communications", "company": "M&T Bank", "vieuUrl": "https://www.vieu.com/account-v2?id=6adf16730fb406d14d1bedb6#pt=person&pid=PERS-7664a2d0-9525-48f8-b61b-f74e8fbef5c5"}, {"name": "Russell Evans", "title": "Senior Vice President, Commercial Banking Communications", "company": "M&T Bank", "vieuUrl": "https://www.vieu.com/account-v2?id=6adf16730fb406d14d1bedb6#pt=person&pid=PERS-787f3212-cf83-4f82-8855-f3cd3b1651b0"}, {"name": "Jeannette Ferran Astorga", "title": "Executive Vice President, Corporate Affairs ", "company": "Zoetis", "vieuUrl": "https://www.vieu.com/account-v2?id=6ad8a5052d7b003c92a6f6b6#pt=person&pid=PERS-ac10b5e5-d5d8-46c0-8506-31375680fe23"}, {"name": "Jennifer Albano", "title": "Vice President, Head of Global Corporate Communications", "company": "Zoetis", "vieuUrl": "https://www.vieu.com/account-v2?id=6ad8a5052d7b003c92a6f6b6#pt=person&pid=PERS-8fea8b9f-aa2c-4c93-a148-389efb516e7e"}, {"name": "Michele Baer", "title": "Vice President, Global Commercial Communications", "company": "Zoetis", "vieuUrl": "https://www.vieu.com/account-v2?id=6ad8a5052d7b003c92a6f6b6#pt=person&pid=PERS-7f840389-d371-4050-bec5-e9e5f9ca8e2b"}, {"name": "Robyn (Finker) Velardo", "title": "Senior Director, Enterprise & Transformation Communications", "company": "Zoetis", "vieuUrl": "https://www.vieu.com/account-v2?id=6ad8a5052d7b003c92a6f6b6#pt=person&pid=PERS-7123a50b-36fd-432e-b969-9108540fee6e"}, {"name": "Willem Rijksen", "title": "Vice President, Head of Global Public Affairs & Policy", "company": "Zoetis", "vieuUrl": "https://www.vieu.com/account-v2?id=6ad8a5052d7b003c92a6f6b6#pt=person&pid=PERS-b192a365-a81c-4b24-987a-28919db62f6c"}, {"name": "Paul D. Fullerton", "title": "Head of International Public Affairs", "company": "Zoetis", "vieuUrl": "https://www.vieu.com/account-v2?id=6ad8a5052d7b003c92a6f6b6#pt=person&pid=PERS-35f42dc6-8a53-49ae-8955-4a19f7613673"}, {"name": "Joanna Siegel", "title": "Director of Hospitality and Field Communications", "company": "Shake Shack", "vieuUrl": "https://www.vieu.com/account-v2?id=6adf16750fb406d14d1bedd2#pt=person&pid=PERS-4249fa24-7b2c-43e1-9283-19c414b5fae7"}, {"name": "Marleen Geerlof", "title": "Senior Vice President Corporate Communications", "company": "Nasdaq", "vieuUrl": "https://www.vieu.com/account-v2?id=6adf0af06995e6110ef7f9ab#pt=person&pid=PERS-d8cedd80-b099-48c0-9984-91a14a72c566"}, {"name": "Caity Kauffman", "title": "Global Head of Digital Communications and Social Media", "company": "Nasdaq", "vieuUrl": "https://www.vieu.com/account-v2?id=6adf0af06995e6110ef7f9ab#pt=person&pid=PERS-ba207119-0083-4bec-a9a1-6769fcbb7c85"}, {"name": "Christine Campisi", "title": "Vice President Corporate Communications", "company": "Citizens", "vieuUrl": "https://www.vieu.com/account-v2?id=6adf0af96995e6110ef7fa39#pt=person&pid=PERS-f4c6c500-1fc0-48e6-b0fe-edbb779262ac"}]}, "familyOrder": ["New comms leader", "CEO change", "Activist investor", "Deal", "Crisis", "Geopolitical"], "whyBySignal": {"New comms leader": "New comms heads review agencies and advisers in their first 100 days.", "CEO change": "A new CEO resets the story for investors, staff and customers.", "Activist investor": "Activists campaign in public; the company needs its story out first.", "Deal": "Deals need every audience kept on side until close.", "Crisis": "A breach, lawsuit or regulator puts reputation on the line now.", "Geopolitical": "Conflict, sanctions or tariffs become political and reputational exposure."}, "segments": [{"n": 1, "why": "Conflict, sanctions and tariffs turn into political and reputational exposure.", "short": "Geopolitical exposure", "name": "Newly exposed to geopolitical risk", "signals": [["Tariffs and tariff refunds", "Margins go public, then the question becomes who benefited."], ["Sanctions", "Ownership and market access turn political."], ["Operations in conflict regions", "Staff, investors and officials all ask about safety and continuity."]]}, {"n": 2, "why": "Activists, regulators and new leaders put reputation on the line now.", "short": "Reputational scrutiny", "name": "Social, environmental and reputational scrutiny", "signals": [["Activist investor", "The activist campaigns in public; the company needs its story out first."], ["State AG or regulator action", "Reputation is on the line now, not next quarter."], ["New CEO or comms leader", "New leaders review outside advisers in their first 100 days."]]}, {"n": 3, "why": "AI-made content and AI products create risk faster than teams can respond.", "short": "AI risk", "name": "AI-generated reputational and stakeholder risk", "signals": [["Deepfake or AI misinformation", "False content spreads faster than the correction."], ["AI product under scrutiny", "Customers, regulators and media ask the same question at once."], ["New AI rules in key markets", "The rules set what the company has to explain."]]}], "example": {"account": "M&T Bank", "id": "m-t-bank", "signal": "New Chief Corporate Affairs Officer in August", "date": "2026-08-04", "people": [{"name": "Ryan Stanton", "title": "Chief Corporate Affairs Officer (joined Aug 2026)", "role": "Decision maker"}, {"name": "Patrick Fitzgibbons", "title": "Senior Vice President, Sr. Public Relations Manager", "role": "Champion"}], "people_n": 7, "introducer": "Chris Nelson", "relay": "Patrick Fitzgibbons", "decision": "Ryan Stanton", "how": "Worked together at FleishmanHillard, 2012–2014"}, "engine": {"watched": 1011, "signal": 390, "picked": ["M&T Bank", "Snap Inc.", "Shake Shack", "MongoDB"], "people": 26, "warm": 2}, "dinnerNyc": [{"group": "This week's accounts", "people": [{"name": "Patrick Fitzgibbons", "account": "M&T Bank", "title": "Senior Vice President, Sr. Public Relations Manager", "location": "New York, NY", "linkedIn": "https://www.linkedin.com/in/patrick-fitzgibbons-4983b37", "vieuUrl": "https://www.vieu.com/account-v2?id=6adf16730fb406d14d1bedb6#pt=person&pid=PERS-76c57200-372d-47f5-bd1b-b98148b48916", "warm": "Chris Nelson"}, {"name": "Lauren Hilliker", "account": "M&T Bank", "title": "Senior Vice President, Reputation Management Communications", "location": "New York, NY", "linkedIn": "https://www.linkedin.com/in/lauren-hilliker-7a067a126", "vieuUrl": "https://www.vieu.com/account-v2?id=6adf16730fb406d14d1bedb6#pt=person&pid=PERS-7664a2d0-9525-48f8-b61b-f74e8fbef5c5", "warm": ""}, {"name": "Marleen Geerlof", "account": "Nasdaq", "title": "Senior Vice President Corporate Communications", "location": "NYC metro area", "linkedIn": "https://www.linkedin.com/in/marleen-geerlof-86104616", "vieuUrl": "https://www.vieu.com/account-v2?id=6adf0af06995e6110ef7f9ab#pt=person&pid=PERS-d8cedd80-b099-48c0-9984-91a14a72c566", "warm": "Chris Deri"}, {"name": "Caity Kauffman", "account": "Nasdaq", "title": "Global Head of Digital Communications and Social Media", "location": "New York, NY", "linkedIn": "https://www.linkedin.com/in/caitykauffman", "vieuUrl": "https://www.vieu.com/account-v2?id=6adf0af06995e6110ef7f9ab#pt=person&pid=PERS-ba207119-0083-4bec-a9a1-6769fcbb7c85", "warm": ""}]}, {"group": "Campaign and new companies", "people": [{"name": "Jason Schlossberg", "account": "SharkNinja", "title": "Chief Communications Officer", "location": "New York, NY", "linkedIn": "https://www.linkedin.com/in/jasonschlossberg", "vieuUrl": "https://www.vieu.com/account-v2?id=6a574b8505db1f839ee670ad#pt=person&pid=PERS-9bdf7d8c-ba70-4e88-a490-e6b92d5b499d", "warm": ""}, {"name": "Elle Hagedorn", "account": "Under Armour", "title": "Director, Global Brand Communications", "location": "New York, NY", "linkedIn": "https://www.linkedin.com/in/ellehagedorn", "vieuUrl": "https://www.vieu.com/account-v2?id=6a5887792aa6bab5097b8e1d#pt=person&pid=PERS-24d9cb84-a607-4fcd-884d-dd310e389fe5", "warm": ""}, {"name": "Haley Steinberg", "account": "Authentic Brands Group", "title": "SVP, Global PR and Corporate Communications", "location": "New York, NY", "linkedIn": "https://www.linkedin.com/in/haleysteinberg", "vieuUrl": "https://www.vieu.com/account-v2?id=6adf15500fb406d14d1be53c#pt=person&pid=PERS-0579d9eb-0e97-4e72-95ad-90fe7878a302", "warm": ""}, {"name": "Phil Terrigno", "account": "Solstice Advanced Materials", "title": "Senior Director, External Communications", "location": "NYC metro area", "linkedIn": "https://www.linkedin.com/in/phil-terrigno-068a6149", "vieuUrl": "https://www.vieu.com/account-v2?id=6adf15540fb406d14d1be56e#pt=person&pid=PERS-41c95e08-6bc4-4a34-8cf2-d27b7cf31248", "warm": ""}]}, {"group": "Your Top 1K", "people": [{"name": "John Pizzuro", "account": "Snap Inc.", "title": "Head of US Law Enforcement & Safety Policy", "location": "NYC metro area", "linkedIn": "https://www.linkedin.com/in/johnpizzuro", "vieuUrl": "https://www.vieu.com/account-v2?id=6ad8a50c33a5611f4d34a5c2#pt=person&pid=PERS-d117f9dd-44f1-4ee2-b238-2486aa92bc6a", "warm": ""}, {"name": "Joanna Siegel", "account": "Shake Shack", "title": "Director of Hospitality and Field Communications", "location": "New York, NY", "linkedIn": "https://www.linkedin.com/in/joanna-siegel-8b2bb838", "vieuUrl": "https://www.vieu.com/account-v2?id=6adf16750fb406d14d1bedd2#pt=person&pid=PERS-4249fa24-7b2c-43e1-9283-19c414b5fae7", "warm": ""}, {"name": "Jeannette Ferran Astorga", "account": "Zoetis", "title": "Executive Vice President, Corporate Affairs", "location": "New York, NY", "linkedIn": "https://www.linkedin.com/in/jeannette-ferran-astorga-336ba45", "vieuUrl": "https://www.vieu.com/account-v2?id=6ad8a5052d7b003c92a6f6b6#pt=person&pid=PERS-ac10b5e5-d5d8-46c0-8506-31375680fe23", "warm": ""}, {"name": "Jennifer Albano", "account": "Zoetis", "title": "Vice President, Head of Global Corporate Communications", "location": "NYC metro area", "linkedIn": "https://www.linkedin.com/in/jenniferkalbano", "vieuUrl": "https://www.vieu.com/account-v2?id=6ad8a5052d7b003c92a6f6b6#pt=person&pid=PERS-8fea8b9f-aa2c-4c93-a148-389efb516e7e", "warm": ""}, {"name": "Ashok Sinha", "account": "Dow Jones", "title": "Chief Communications Officer", "location": "New York, NY", "linkedIn": "https://www.linkedin.com/in/ashokvsinha", "vieuUrl": "https://www.vieu.com/account-v2?id=6a0ed9e0e70cf122087e6dff#pt=person&pid=PERS-24c4fa77-7e96-427b-be68-914d0456ba1f", "warm": ""}, {"name": "Marleen Geerlof", "account": "Nasdaq", "title": "Senior Vice President Corporate Communications", "location": "NYC metro area", "linkedIn": "https://www.linkedin.com/in/marleen-geerlof-86104616", "vieuUrl": "https://www.vieu.com/account-v2?id=6adf0af06995e6110ef7f9ab#pt=person&pid=PERS-d8cedd80-b099-48c0-9984-91a14a72c566", "warm": ""}, {"name": "Christopher La Raja", "account": "Citizens", "title": "SVP of Public Affairs", "location": "NYC metro area", "linkedIn": "https://www.linkedin.com/in/chrislaraja", "vieuUrl": "https://www.vieu.com/account-v2?id=6adf0af96995e6110ef7fa39#pt=person&pid=PERS-23f8af37-6919-4c46-adbf-920d62e13136", "warm": ""}, {"name": "Dominique Cimina", "account": "Penguin Random House", "title": "SVP, Publicity, Corporate Communications & Author Brand Strategy", "location": "New York, NY", "linkedIn": "https://www.linkedin.com/in/dominique-cimina-b71aa45", "vieuUrl": "https://www.vieu.com/account-v2?id=6a156726ce6978deeb745497#pt=person&pid=PERS-36e1ad4b-d9c6-408e-9b97-b44116052a6b", "warm": ""}]}], "meetTop": [{"who": "Dev Ittycheria", "title": "Interim CEO", "account": "MongoDB", "event": "MongoDB.local NYC", "city": "New York", "when": "Annual · spoke Sep 30, 2026", "url": "https://www.mongodb.com/events/mongodb-local/nyc"}, {"who": "M&T Bank leadership", "title": "", "account": "M&T Bank", "event": "Goldman Sachs Financial Services Conference", "city": "New York", "when": "Every December", "url": "https://newsroom.mtb.com/2025-11-19-M-T-Bank-Corporation-to-Participate-in-the-Goldman-Sachs-Financial-Services-Conference"}, {"who": "Rob Lynch", "title": "CEO", "account": "Shake Shack", "event": "TD Cowen Consumer Conference", "city": "New York", "when": "Every June", "url": "https://investor.shakeshack.com/press-releases/press-release-details/2026/Shake-Shack-to-Participate-in-June-Investor-Conferences/default.aspx"}, {"who": "Rob Lynch", "title": "CEO", "account": "Shake Shack", "event": "ICR Conference", "city": "Orlando", "when": "Jan 11–13, 2027", "url": "https://www.sec.gov/Archives/edgar/data/1620533/000162053326000008/q42025businessupdate_ex991.htm"}, {"who": "Kevin Plank", "title": "Founder & CEO", "account": "Under Armour", "event": "Semafor World Economy", "city": "Washington, DC", "when": "Every April", "url": "https://www.semafor.com/article/03/18/2026/semafor-unveils-400-top-global-ceos-and-government-leaders-for-semafor-world-economy-2026"}, {"who": "Evan Spiegel", "title": "CEO", "account": "Snap Inc.", "event": "AWE USA", "city": "Long Beach, CA", "when": "Every June", "url": "https://newsroom.snap.com/awe-2026-save-the-date"}], "stack": {"tiers": [{"name": "People moves", "source": "Vieu API · hiring and exec moves, live", "items": [["Hiring a comms / corporate affairs leader", "#4 #9", 330], ["Hiring a brand / reputation leader", "#17", 140], ["Hiring a public affairs / government relations leader", "#4", 106], ["Comms, public affairs or brand leader changes job", "#5 #10 #18", 0]]}, {"name": "Geopolitical exposure", "source": "Vieu keyword signals + news", "items": [["Operations exposed to a war or conflict", "", 125], ["Russian sabotage risk in Europe (rail, water, shipping, air)", "", 53], ["Strait of Hormuz: shipping, oil, insurance", "", 26], ["Move into a sensitive market: new office, JV, deal", "#6", 0]]}, {"name": "Company moves", "source": "News and filings, each one read before it’s shown", "items": [["Layoffs", "#12", 0], ["Rebrand or repositioning", "#15", 0], ["Buying a controversial company", "#11", 0], ["DEI / ESG report published", "#13", 0], ["Earnings call names narrative or reputation", "#20", 0], ["Culture-war or ESG backlash", "", 11]]}, {"name": "What execs post", "source": "Vieu person profiles + LinkedIn posts", "items": [["Exec posts on geopolitics", "#7", 0], ["Exec posts on ESG, crisis or employee relations", "#14", 0], ["Exec posts on AI, narrative or brand", "#22", 0], ["Company posts about an issue it faces", "#3", 0], ["New thought-leadership program", "#21", 0]]}, {"name": "Buying intent", "source": "Partly covered: rival advisers from Vieu; the rest needs a web-intent feed", "gap": true, "items": [["Already uses a rival adviser (Brunswick, FTI, FGS)", "#8", 27], ["Engages with KRG or competitor posts", "#1 #2", 0], ["Searching for a comms or GEO agency", "#8 #16", 0], ["Follows GEO tools (Profound, Muck Rack, Meltwater)", "#19", 0]]}], "themes": [["Data centres", 0], ["GLP-1 and food sales", 0], ["Strait of Hormuz", 26], ["Russian sabotage in Europe", 53], ["Wars and regime change", 125], ["GEO / AEO", 0], ["Multi-stakeholder comms", 0]]}, "stacked": {"n3": 61, "n4": 82, "accounts": [{"account": "The Chemours Company", "route": "No path", "chips": [["Hiring issues & crisis comms", "#4 #9"]], "news": [["PFAS settlement", "#14"], ["ESG report", "#13"], ["CEO on AI data-centre demand", "Theme"]]}, {"account": "Nasdaq", "route": "Adviser path", "chips": [["Hiring a policy & comms director", "#4 #9"], ["Uses FTI", "#8"]], "news": [["CEO on an AI-driven market", "#22"]]}, {"account": "Zoetis", "route": "Adviser path", "chips": [["Hiring a comms VP (issues & crisis)", "#9"], ["Uses Brunswick", "#8"]], "news": [["ESG report", "#13"]]}, {"account": "Snowflake", "route": "Adviser path", "chips": [["Hiring a Head of Government Affairs", "#4"], ["Uses Brunswick", "#8"]], "news": [["CEO on powering enterprise AI", "#22"]]}, {"account": "F5", "route": "Adviser path", "chips": [["Hiring a senior comms director", "#9"]], "news": [["CEO on AI and security", "#22"], ["Breach lawsuits", "#14"]]}]}, "evidence": {"M&T Bank": [{"label": "New Chief Corporate Affairs Officer", "rel": "High", "what": "M&T named Ryan Stanton, previously PwC's head of global reputation and issues management, Chief Corporate Affairs Officer over communications, government affairs, PR and reputation.", "date": "2026-08-04", "who": "Ryan Stanton, Chief Corporate Affairs Officer", "url": "https://newsroom.mtb.com/2026-08-04-M-T-Bank-Appoints-Ryan-Stanton-as-Chief-Corporate-Affairs-Officer", "src": "M&T newsroom", "why": "New corporate affairs chiefs review agencies and outside advisers in their first 100 days. Day 100 is mid-November.", "chip": "New Chief Corporate Affairs Officer"}, {"label": "2025 Sustainability Report published", "rel": "Medium", "what": "M&T released its 2025 Sustainability Report on community investment, sustainable finance and resilience.", "date": "2026-08-25", "who": "M&T Bank", "url": "https://newsroom.mtb.com/2026-08-25-M-T-Bank-Releases-2025-Sustainability-Report,-Highlighting-Community-Investment,-Sustainable-Finance-and-Long-Term-Resilience", "src": "M&T newsroom", "why": "Fresh public claims invite scrutiny, and the new chief now owns how they're defended.", "chip": "Sustainability report"}], "MongoDB": [{"label": "CEO left for Meta; search under way", "rel": "High", "what": "CEO CJ Desai left to join Meta. Dev Ittycheria returned as interim CEO and the board hired a search firm.", "date": "2026-09-28", "who": "CJ Desai (departing CEO); Dev Ittycheria, interim CEO", "url": "https://www.prnewswire.com/news-releases/mongodb-announces-ceo-transition-302891360.html", "src": "MongoDB press release", "why": "A CEO change resets the company story for staff, customers and investors, and outside advisers get reviewed with it.", "chip": "CEO exit"}, {"label": "Repositioned around AI agents at Investor Day", "rel": "Medium", "what": "A day later, Dev Ittycheria led Investor Day, launched Atlas Agent Engine and pitched MongoDB as the data layer for production AI agents.", "date": "2026-09-29", "who": "Dev Ittycheria, interim CEO", "url": "https://theoutpost.ai/news-story/mongodb-unveils-atlas-agent-engine-and-partners-with-cognition-to-accelerate-ai-agent-deployment-31472/", "src": "AI trade news (secondary source)", "why": "A new narrative under an interim CEO is fragile; it needs one voice before the permanent CEO arrives.", "chip": "AI repositioning"}], "The Chemours Company": [{"label": "$455M PFAS settlement with North Carolina", "rel": "High", "what": "Chemours, DuPont and Corteva agreed to pay $455M over 15 years to settle Fayetteville Works PFAS claims. The CEO highlighted it again in Q3 results on Nov 2.", "date": "2026-09-10", "who": "Denise Dignam, President and CEO", "url": "https://www.sec.gov/Archives/edgar/data/0001627223/000162722326000029/cc-20260910.htm", "src": "SEC 8-K", "why": "Settlement plus an Oct 8 securities class action: reputation and litigation comms is the opening, not a sales pitch.", "chip": "PFAS settlement"}, {"label": "2025 Sustainability Report published", "rel": "Medium", "what": "Chemours published its 2025 Sustainability Report on emissions, responsible manufacturing, safety and community investment.", "date": "2026-08-25", "who": "Chemours", "url": "https://www.barchart.com/story/news/4018175/chemours-publishes-2025-sustainability-report-highlighting-progress-on-climate-emissions-reduction-and-responsible-manufacturing", "src": "Business news", "why": "ESG claims made during PFAS litigation get tested by regulators, communities and press.", "chip": "ESG report"}, {"label": "CEO credits AI data-centre demand", "rel": "Medium", "what": "In Q3 results the CEO credited demand from AI infrastructure, including data centres.", "date": "2026-11-02", "who": "Denise Dignam, President and CEO", "url": "https://www.sec.gov/Archives/edgar/data/0001627223/000162722326000032/cc-ex99_1.htm", "src": "SEC filing", "why": "Ties Chemours to KRG's data-centre thought leadership.", "chip": "CEO on AI data-centre demand"}, {"label": "Hiring for issues and crisis communications", "rel": "Medium", "what": "Chemours is hiring an Operations Communications Specialist to run crisis and issues communications and reputation work for its plant sites, reporting to the Global Communications Leader. Vieu also picked up a Senior Manager, Issues & Crisis Communications role.", "date": "", "who": "Reports to the Global Communications Leader", "url": "https://builtin.com/job/operations-communications-specialist/3633818", "src": "Job post (Built In)", "why": "Chemours is building crisis capacity while PFAS litigation runs: it expects more issues, and outside counsel is the next step up.", "chip": "Hiring issues & crisis comms"}], "Nasdaq": [{"label": "CEO pitches an AI-driven, always-on market", "rel": "Medium", "what": "In the Q3 release, the CEO pointed to agentic AI across 850+ Verafin clients and tokenisation, and described markets moving to an AI-driven, always-on future.", "date": "2026-10-22", "who": "Adena Friedman, Chair and CEO", "url": "https://www.sec.gov/Archives/edgar/data/0001120193/000112019326000017/earningsrelease3q26ex-991.htm", "src": "SEC filing", "why": "A new market story needs selling to regulators, issuers and the public: corporate affairs work.", "chip": "CEO on an AI-driven market"}, {"label": "Hiring a Director, Policy, Regulatory and Communications", "rel": "High", "what": "A Washington, DC role to build communications plans that push Nasdaq's policy and advocacy agenda and to work with policy reporters. A separate Director, Corporate Communications, Digital Assets role covers media relations and issues management.", "date": "", "who": "Nasdaq External Relations", "url": "https://www.daybook.com/jobs/c3SDj7stew8Wn47Da", "src": "Job post (Daybook)", "why": "Policy plus comms in one hire is exactly KRG's public affairs offer.", "chip": "Hiring policy & comms director"}, {"label": "Already uses FTI", "rel": "Medium", "what": "Vieu shows Nasdaq working with FTI Consulting.", "date": "2026-10-26", "who": "", "url": "", "src": "Vieu technographics", "why": "Nasdaq already buys outside counsel; KRG competes as the senior boutique alongside.", "chip": "Uses FTI"}], "Zoetis": [{"label": "2025 Sustainability Report published", "rel": "Medium", "what": "Zoetis released its 2025 Sustainability Report, closing out its first Driven to Care targets and introducing a refreshed strategy.", "date": "2026-06-04", "who": "Jeannette Ferran Astorga, EVP Corporate Affairs", "url": "https://www.businesswire.com/news/home/20260604710121/en/Zoetis-Releases-2025-Sustainability-Report-Advancing-Sustainability-in-Animal-Health-for-a-Better-Future", "src": "Zoetis release, Business Wire", "why": "A new strategy means new public claims to defend, owned by corporate affairs.", "chip": "ESG report"}, {"label": "Hiring comms leaders who own issues and crisis", "rel": "Medium", "what": "Zoetis is hiring a Vice President, Global Commercial Communications, covering portfolio communications and issues and crisis management. A Director, U.S. Commercial Communications role also leads issues and crisis work and manages agency partners.", "date": "", "who": "Zoetis Communications", "url": "https://www.mediabistro.com/jobs/3072932527-vice-president-global-commercial-communications", "src": "Job post (Mediabistro)", "why": "New comms leaders who manage agencies review them early.", "chip": "Hiring comms VP"}, {"label": "Caution: results Nov 5", "rel": "Medium", "what": "Guidance was cut in August and analysts cut targets in October. Q3 results are due Nov 5.", "date": "2026-10-20", "who": "Zoetis", "url": "", "src": "Market coverage", "why": "Don't reach out on results day; after it, investor pressure is itself a reason to talk."}, {"label": "Uses Brunswick today", "rel": "Medium", "what": "Vieu links Zoetis to Brunswick Group as an outside communications adviser.", "date": "2026-10-26", "who": "Zoetis", "url": "", "src": "Vieu adviser data", "why": "They already pay for this kind of counsel, so KRG is a switch or a second adviser, not a new budget.", "chip": "Uses Brunswick"}], "Snowflake": [{"label": "CEO frames Snowflake as powering enterprise AI", "rel": "Medium", "what": "In Q2 FY27 results the CEO said Snowflake continues to power the enterprise AI revolution and that AI is compounding its advantages. Revenue grew 35%.", "date": "2026-09-02", "who": "Sridhar Ramaswamy, CEO", "url": "https://secure.businesswire.com/news/home/20260902386235/en/Snowflake-Reports-Financial-Results-for-the-Second-Quarter-of-Fiscal-2027", "src": "Snowflake results, Business Wire", "why": "Every data company now claims AI. Standing out with buyers and regulators is a positioning problem.", "chip": "CEO on enterprise AI"}, {"label": "Hiring a Head of Global Government Affairs", "rel": "High", "what": "Snowflake is hiring a Head of Government Affairs to own its global government affairs function, reporting to the Office of the CEO. The role covers US federal policy and EU digital rules (AI Act, GDPR).", "date": "", "who": "Reports to the Office of the CEO", "url": "https://www.politicaljobhunt.com/jobs/head-of-global-government-affairs-d8c1624a", "src": "Job post (Political Job Hunt)", "why": "A new global public affairs head reporting to the CEO's office builds a function from scratch and picks the outside advisers.", "chip": "Hiring Head of Government Affairs"}, {"label": "Uses Brunswick today", "rel": "Medium", "what": "Vieu links Snowflake to Brunswick Group as an outside communications adviser.", "date": "2026-10-26", "who": "Snowflake", "url": "", "src": "Vieu adviser data", "why": "They already pay for this kind of counsel, so KRG is a switch or a second adviser, not a new budget.", "chip": "Uses Brunswick"}], "F5": [{"label": "CEO: frontier AI is rewriting security", "rel": "Medium", "what": "In FY26 Q4 results the CEO said frontier AI is rewriting the rules of enterprise security and speeding up vulnerability discovery to machine speed.", "date": "2026-10-27", "who": "François Locoh-Donou, Chairman, President and CEO", "url": "https://www.f5.com/company/news/press-releases/earnings-q4-fy26", "src": "F5 results", "why": "Security firms win on trust, so the AI story has to land with customers and government at once.", "chip": "CEO on AI and security"}, {"label": "Hiring a Senior Director, Employee & Executive Communications", "rel": "Medium", "what": "A global communications leader role whose duties include running employee crisis response for global and local issues.", "date": "", "who": "F5 Communications", "url": "https://www.mediabistro.com/jobs/3256652946-sr-dir-employee-and-executive-communications", "src": "Job post (Mediabistro)", "why": "Crisis readiness hiring after the breach: an opening for outside crisis and reputation counsel.", "chip": "Hiring senior comms director"}, {"label": "Breach fallout still live", "rel": "High", "what": "Securities class actions continue after the 2025 nation-state breach, and CISA added the linked vulnerability to its exploited list in March 2026.", "date": "", "who": "F5", "url": "", "src": "Court filings and CISA list", "why": "Sensitive, not acute: reputation repair with government stakeholders is KRG's ground.", "chip": "Breach lawsuits"}]}, "extra": {"Authentic Brands Group": [{"label": "New CEO named, IPO expected within a year", "rel": "High", "what": "Founder Jamie Salter moved to executive chairman and Matt Maddox became president and CEO. Salter said he expects the company to go public within about 12 months.", "date": "2026-05-21", "who": "Matt Maddox, President and CEO; Jamie Salter, Executive Chairman", "url": "https://finance.yahoo.com/markets/stocks/articles/jamie-salter-hands-ceo-reins-165046313.html", "src": "Yahoo Finance", "why": "A new CEO heading toward an IPO needs a clear public story for investors, media and partners."}, {"label": "Agrees to buy Lee jeans from Kontoor", "rel": "Medium", "what": "Kontoor Brands agreed to sell the Lee denim brand to Authentic for up to $1 billion, and Authentic plans to move Lee to a licensing model. The deal needs regulatory approval and is expected to close in the second half of 2026.", "date": "2026-05-21", "who": "Authentic Brands Group", "url": "https://www.businesswire.com/news/home/20260521532973/en/kontoor-brands-enters-into-definitive-agreement-to-sell-lee%c2%ae-business-to-authentic-brands-group/", "src": "Business Wire", "why": "Switching a heritage brand to licensing affects staff, retailers and fans, and those changes need careful messaging."}], "Michael Baker International": [{"label": "Hires leader for data centre business", "rel": "Medium", "what": "Michael Baker hired Kevin Olsavsky, formerly of Jacobs, to lead its mission-critical and data centre market. The goal is to grow work in site selection, commissioning and energy.", "date": "2026-01-22", "who": "Kevin Olsavsky, Mission Critical and Data Center Market Sector Leader", "url": "https://aijourn.com/michael-baker-international-welcomes-kevin-olsavsky-p-e-leed-ap-cdcp-as-mission-critical-and-data-center-market-sector-leader/", "src": "Company press release (via AI Journal)", "why": "Data centre projects draw local opposition and political attention, so the firm needs community and stakeholder messaging as it wins more of them."}], "National Fuel Gas Company": [{"label": "Closes $2.6bn CenterPoint Ohio utility purchase", "rel": "Medium", "what": "National Fuel completed its $2.62 billion purchase of CenterPoint's Ohio gas utility, which serves about 335,000 customers. Part of the price was paid with a $1.2 billion note to the seller.", "date": "2026-10-01", "who": "National Fuel Gas Company", "url": "https://www.sec.gov/Archives/edgar/data/0000070145/000119312526409787/d132008d8k.htm", "src": "SEC 8-K", "why": "Taking on a new state's customers, regulators and politicians, while also spinning off its upstream business, means a lot of new audiences to manage at once."}], "Vail Resorts": [{"label": "Shareholders sue board over antitrust claims", "rel": "High", "what": "Shareholder Thomas Stewart filed a suit on the company's behalf against CEO Rob Katz and the board, the second such suit after one in September. The suits say the directors exposed Vail to antitrust liability over its pass and ticket pricing.", "date": "2026-10-05", "who": "Rob Katz, CEO and Chairman, and the Vail Resorts board", "url": "https://www.kpcw.org/enespanol/2026-10-12/vail-faces-second-shareholder-lawsuit-on-antitrust-issues", "src": "KPCW", "why": "Board-level lawsuits during a live proxy fight add to the pressure on how the board explains itself to investors and skiers."}, {"label": "Nearly 2,000 instructors join wage lawsuit", "rel": "Medium", "what": "Nearly 2,000 current and former ski and snowboard instructors joined a federal lawsuit saying Vail did not pay for required off-the-clock work or reimburse gear costs. Vail denies the claims.", "date": "2026-04-15", "who": "Vail Resorts", "url": "https://www.parkrecord.com/2026/04/15/nearly-2000-ski-instructors-join-suit-versus-vail-resorts/", "src": "Park Record", "why": "A large, public dispute with frontline staff hurts the brand and gives activists another talking point."}], "Solstice Advanced Materials": [{"label": "Drops $14.5bn Element deal after investor pushback", "rel": "High", "what": "Solstice and Element Solutions ended their planned $14.5 billion merger after shareholders of both companies objected. Solstice then announced a $500 million share buyback.", "date": "2026-08-27", "who": "Dr. Rajeev Gautam, Chairman; David Sewell, President and CEO", "url": "https://www.sec.gov/Archives/edgar/data/0002064953/000110465926102503/tm2620579d9_ex99-1.htm", "src": "SEC 8-K", "why": "A deal killed by investor backlash, followed weeks later by an activist stake, means management needs to rebuild trust with shareholders quickly."}], "EPAM Systems": [{"label": "Dropped from the S&P 500", "rel": "Medium", "what": "S&P Dow Jones Indices moved EPAM from the S&P 500 down to the S&P SmallCap 600, saying it now better represents small-cap companies. FedEx Freight took its place.", "date": "2026-05-27", "who": "EPAM Systems", "url": "https://press.spglobal.com/2026-05-27-FedEx-Freight-Holding-Company-Set-to-Join-S-P-500-EPAM-Systems-and-Dave-to-Join-S-P-SmallCap-600", "src": "S&P Dow Jones Indices", "why": "Losing S&P 500 status adds to the worry that AI is shrinking the IT services market, and EPAM needs a stronger growth story."}, {"label": "Cuts revenue outlook, shares fall sharply", "rel": "High", "what": "EPAM lowered its 2026 revenue growth outlook with its second-quarter results, and its shares fell about 14% that day. Management said large AI deals would not contribute much until 2027.", "date": "2026-08-06", "who": "EPAM Systems", "url": "https://tradersunion.com/news/stocks/show/2924602-epam-slides-13-84percent-today-to/", "src": "Traders Union", "why": "A guidance cut weeks before an activist arrived puts EPAM's AI story under pressure with investors."}], "Lucid Motors": [{"label": "New CEO cuts 18% of US staff", "rel": "High", "what": "New CEO Silvio Napoli cut about 18% of Lucid's US workforce and dropped the second shift at its Arizona plant. It was the company's second round of layoffs in 2026.", "date": "2026-06-22", "who": "Silvio Napoli, CEO", "url": "https://insideevs.com/news/799466/lucid-layoffs-midsize-ev-platform-restructuring/", "src": "InsideEVs", "why": "Repeated layoffs under a new CEO put pressure on employee, investor and customer messaging ahead of the Cosmos launch."}, {"label": "CFO departs as CEO reshapes leadership team", "rel": "Medium", "what": "CFO Taoufiq Boussaid left, and Napoli halved the number of people reporting directly to the CEO. He also created new technology, customer and transformation chief roles.", "date": "2026-07-02", "who": "Taoufiq Boussaid, departing CFO; Silvio Napoli, CEO", "url": "https://www.evmagazine.eu/lucid-motors-executive-shakeup-new-ceo-napoli-reshapes-c-suite-cfo-departs", "src": "EV Magazine", "why": "Heavy turnover in the top team, along with a securities lawsuit, makes a steady and credible story to investors critical."}], "Under Armour": [{"label": "Weak outlook sends shares down about 20%", "rel": "High", "what": "Under Armour forecast another year of falling sales and profit well below estimates, and its shares fell about 20%. The company blamed the Curry brand exit and the Middle East conflict, and raised its restructuring cost estimate to about $305 million.", "date": "2026-05-12", "who": "Kevin Plank, President and CEO", "url": "https://www.bnnbloomberg.ca/business/2026/05/12/under-armour-sees-another-weak-year-as-north-america-struggles-shares-slump/", "src": "BNN Bloomberg", "why": "Three years of falling sales and a growing restructuring bill put Plank's turnaround story under scrutiny."}], "SharkNinja": [{"label": "Appoints first Chief Communications Officer", "rel": "Medium", "what": "SharkNinja named Jason Schlossberg as Chief Communications Officer, based in New York. He covers corporate and internal communications, executive thought leadership, social media and philanthropy.", "date": "2026-02-12", "who": "Jason Schlossberg, Chief Communications Officer", "url": "https://newsroom.sharkninja.com/sharkninja-appoints-jason-schlossberg-as-chief-communications-officer/", "src": "SharkNinja newsroom", "why": "A new CCO building out a team is often open to bringing in specialist advisers, especially on tariffs and trade policy."}], "Constellation Brands": [{"label": "Board names Nicholas Fink as new CEO", "rel": "Medium", "what": "Board member Nicholas Fink, formerly CEO of Fortune Brands, succeeded Bill Newlands as president and CEO on April 13, 2026. The change came as beer sales weakened.", "date": "2026-02-12", "who": "Nicholas Fink, President and CEO", "url": "https://www.sec.gov/Archives/edgar/data/16918/000119312526048815/d31913dex991.htm", "src": "SEC 8-K", "why": "A new CEO often reviews outside advisers and sets a fresh story for investors."}, {"label": "Hispanic beer buyers held back by immigration fears", "rel": "High", "what": "First-quarter beer volumes slipped as Hispanic shoppers, about half of its beer buyers, cut back amid cost-of-living strain and fears about immigration enforcement. Fink pointed to a more value-conscious consumer.", "date": "2026-07-01", "who": "Nicholas Fink, President and CEO", "url": "https://qz.com/constellation-brands-revenue-decline-beer-demand-070126", "src": "Quartz", "why": "Its core customers are caught up in a heated political issue, which makes messaging on immigration, tariffs and Mexico especially sensitive."}], "Palantir Technologies": [{"label": "Karp's 22-point manifesto sparks backlash", "rel": "High", "what": "Palantir posted a 22-point manifesto drawn from Alex Karp's book, calling for a possible return of the military draft and for US firms to build AI weapons. Its claim that some cultures are 'regressive' drew wide criticism.", "date": "2026-04-22", "who": "Alex Karp, CEO", "url": "https://fortune.com/2026/04/22/palantir-alex-karp-mini-manifesto-national-security-defense-tech-ai/", "src": "Fortune", "why": "The CEO's own public statements are now a driver of reputation risk with governments and staff."}, {"label": "120+ European groups demand Palantir contracts be cancelled", "rel": "High", "what": "More than 120 unions and civil society groups across Europe, including the European public service union federation, urged governments and the European Commission to cancel all Palantir contracts and bar it from future ones. Days earlier, the EU defence commissioner had praised the company.", "date": "2026-09-28", "who": "Palantir Technologies", "url": "https://www.commondreams.org/news/palantir-european-union-contracts", "src": "Common Dreams", "why": "Organised opposition in Europe threatens its government contracts there and calls for public-affairs work in Brussels and national capitals."}]}, "peopleExtra": {"Ryan Stanton": {"quotes": [{"text": "I've spent my career helping organizations navigate high-stakes moments and build lasting trust with the clients and stakeholders.", "kind": "Press release", "date": "2026-08-04", "url": "https://newsroom.mtb.com/2026-08-04-M-T-Bank-Appoints-Ryan-Stanton-as-Chief-Corporate-Affairs-Officer", "where": "M&T Bank newsroom"}, {"text": "I'm honored to join M&T and help strengthen the bank's engagement with the communities it serves.", "kind": "Press release", "date": "2026-08-04", "url": "https://newsroom.mtb.com/2026-08-04-M-T-Bank-Appoints-Ryan-Stanton-as-Chief-Corporate-Affairs-Officer", "where": "M&T Bank newsroom"}], "facts": [{"type": "New in role", "text": "Named Chief Corporate Affairs Officer on Aug 4, 2026, leading Communications, Government Affairs, PR and Reputation Management.", "url": "https://newsroom.mtb.com/2026-08-04-M-T-Bank-Appoints-Ryan-Stanton-as-Chief-Corporate-Affairs-Officer"}, {"type": "Ex rival adviser", "text": "Previously Managing Director and Head of Global Reputation & Issues Management at PwC, advising CEOs on crisis response and regulatory engagement.", "url": "https://newsroom.mtb.com/2026-08-04-M-T-Bank-Appoints-Ryan-Stanton-as-Chief-Corporate-Affairs-Officer"}], "topics": ["Reputation & brand", "Crisis & issues", "Public affairs & policy"]}, "Lauren Hilliker": {"quotes": [], "facts": [], "topics": []}, "Elizabeth Dexheimer": {"quotes": [], "facts": [], "topics": []}, "Russell Evans": {"quotes": [{"text": "As AI makes content abundant, authenticity becomes more valuable.", "kind": "Post", "date": "2026-09-16", "url": "https://www.linkedin.com/posts/russell-evans-comms_ai-communications-leadership-activity-7505978504707153921-Ycxt", "where": "LinkedIn"}, {"text": "Plenty of teams are experimenting with AI, but very few are sharing what actually works.", "kind": "Post", "date": "2026-06-24", "url": "https://www.linkedin.com/posts/russell-evans-comms_ill-be-speaking-at-ragans-ai-communications-activity-7475546490845839361-Q27D", "where": "LinkedIn"}], "facts": [{"type": "Speaker", "text": "Announced he would speak at Ragan's AI Communications Virtual Summit in July 2026.", "url": "https://www.linkedin.com/posts/russell-evans-comms_ill-be-speaking-at-ragans-ai-communications-activity-7475546490845839361-Q27D"}, {"type": "Ex rival adviser", "text": "Earlier communications leadership roles at PwC, CAAT Pension Plan and Foresters Financial (Ragan speaker bio).", "url": "https://www.ragan.com/ragan_speakers/russell-evans/"}], "topics": ["AI narrative", "Reputation & brand"]}, "Patrick Fitzgibbons": {"quotes": [], "facts": [{"type": "Other", "text": "Listed as M&T's Senior Public Relations Manager media contact on a Wilmington Trust public finance team release.", "url": "https://www.quantisnow.com/insight/wilmington-trust-adds-six-new-members-of-public-finance-team-6120202"}], "topics": []}, "Laura O'Hara": {"quotes": [], "facts": [{"type": "Other", "text": "Chief Legal Officer overseeing legal affairs and the Office of the Corporate Secretary; former EVP and General Counsel of Santander Bank, joined M&T in 2017.", "url": "https://newsroom.mtb.com/leadership-team?item=18"}], "topics": []}, "Rajiv Ranjan": {"quotes": [], "facts": [{"type": "New in role", "text": "Introduced as the new head of M&T investor relations on the Jan 16, 2026 Q4 2025 earnings call; a 20-year-plus M&T finance veteran.", "url": "https://www.fool.com/earnings/call-transcripts/2026/01/16/mt-bank-mtb-q4-2025-earnings-call-transcript"}], "topics": []}, "Marleen Geerlof": {"quotes": [], "facts": [{"type": "Ex rival adviser", "text": "Former Managing Director at Teneo, which she joined from Brunswick Group, where she led cross-border M&A, activism-defense and investor-engagement mandates.", "url": "https://www.teneo.com/news/press-releases/marleen-geerlof-joins-teneo-as-a-managing-director/"}, {"type": "Other", "text": "Listed in Nasdaq's press center as Global Head of Corporate Communications; at Nasdaq since August 2021 per TheOrg.", "url": "https://www.nasdaq.com/about/press-center"}], "topics": []}, "Will Briganti": {"quotes": [{"text": "We're T+1 from our 2026 Investor Day and excited about our focus on expanding and transforming our platform.", "kind": "Post", "date": "2026-02-26", "url": "https://www.linkedin.com/posts/willbriganti_nasdaq-2026-investor-day-activity-7432861959521370112-oC8d", "where": "LinkedIn"}], "facts": [{"type": "Other", "text": "Joined Nasdaq's Atlanta office in 2018; posted Mar 2026 on Atlanta being named Nasdaq's newest Center of Excellence.", "url": "https://www.linkedin.com/posts/willbriganti_nasdaq-atlanta-where-legacy-meets-innovation-activity-7434275357362544640-TDjK"}], "topics": ["Investor story", "Reputation & brand"]}, "David Lurie": {"quotes": [], "facts": [{"type": "Other", "text": "Listed under External & Media Relations in Nasdaq's Corporate Communications press contacts.", "url": "https://www.nasdaq.com/about/press-center"}], "topics": []}, "Caity Kauffman": {"quotes": [{"text": "I've spent 15+ years helping iconic institutions navigate the intersection of business…", "kind": "Profile", "date": "2026-11", "url": "https://www.linkedin.com/in/caitykauffman", "where": "LinkedIn About"}], "facts": [], "topics": ["Reputation & brand"]}, "Terry Campbell": {"quotes": [], "facts": [{"type": "Speaker", "text": "Speaker on 'Corporate Governance: Key Policy Priorities and Looking Ahead' at the U.S. Chamber Capital Markets Summit, June 9, 2026.", "url": "https://events.uschamber.com/2026ccmcsummit/speaker/2357227/terry-campbell"}, {"type": "Other", "text": "Former Senate Banking aide to Sen. Chuck Hagel and subcommittee staff director; now SVP Government Relations at Nasdaq.", "url": "https://www.nasdaq.com/about/our-people/terry-campbell"}], "topics": []}, "Elina Yrgård": {"quotes": [], "facts": [{"type": "Other", "text": "Listed on Nasdaq's Public Policy team page (as Elina Yrgärd, Associate Vice President, Principal Associate General Counsel).", "url": "https://www.nasdaq.com/public-policy/meet-the-team"}], "topics": []}, "Adena Friedman": {"quotes": [{"text": "As our economy becomes more interconnected, protecting trust in the financial system requires greater collaboration across institutions and industries.", "kind": "Post", "date": "2026-10-28", "url": "https://www.linkedin.com/posts/adenatfriedman_as-our-economy-becomes-more-interconnected-activity-7521260088670633984-Jf2j", "where": "LinkedIn"}, {"text": "Bad actors are leveraging AI. As defenders, we have to be better than them.", "kind": "Interview", "date": "2026-10-01", "url": "https://www.americanbanker.com/news/2026-the-most-powerful-women-in-finance-4-adena-friedman-nasdaq", "where": "American Banker"}], "facts": [{"type": "Other", "text": "LinkedIn post (Oct 28, 2026) calls for the creation of a National Fraud Strategy.", "url": "https://www.linkedin.com/posts/adenatfriedman_as-our-economy-becomes-more-interconnected-activity-7521260088670633984-Jf2j"}, {"type": "Speaker", "text": "Listed as a speaker for the Milken Institute Asia Summit 2026; her Oct 19, 2026 post cites conversations there and at TOKEN2049.", "url": "https://milkeninstitute.org/events/asia-summit-2026/speakers/adena-friedman"}], "topics": ["Public affairs & policy", "AI narrative", "Investor story"]}, "Michelle Bauer": {"quotes": [], "facts": [{"type": "Speaker", "text": "Listed as a speaker (Chief Communications Officer, The Chemours Company) for Ragan's AI Horizons Conference 2026, Feb 2-4, Fort Lauderdale.", "url": "https://www.ragan.com/ragan_speakers/michelle-bauer/?id=331446"}, {"type": "Other", "text": "Ragan bio credits her with leading global teams through complex change, brand architecture redesigns and high-stakes reputation management; prior roles at Campbell Soup, BASF, Cencora and Rohm & Haas.", "url": "https://www.ragan.com/ragan_speakers/michelle-bauer/?id=331446"}], "topics": []}, "Catelijne Wessels": {"quotes": [], "facts": [], "topics": []}, "Heather Connors": {"quotes": [], "facts": [], "topics": []}, "Greg Smith": {"quotes": [], "facts": [{"type": "Other", "text": "Long-tenured Chemours government affairs lead in Washington, DC; signed 2017 correspondence to the EPA Administrator as Director of Government Affairs.", "url": "https://www.toxicdocs.org/d/O34nbDn6VO1DqMReZozNaYyGX?lightbox=1"}], "topics": []}, "Denise Dignam": {"quotes": [{"text": "We also continued to make meaningful progress under our Pathway to Thrive, including reaching a settlement with the State of North Carolina", "kind": "Press release", "date": "2026-11-02", "url": "https://www.sec.gov/Archives/edgar/data/0001627223/000162722326000032/cc-ex99_1.htm", "where": "Chemours Q3 2026 results release"}, {"text": "Our third-quarter results demonstrate strong year-over-year performance in TT and APM, reflecting pricing execution in TiO2", "kind": "Press release", "date": "2026-11-02", "url": "https://www.sec.gov/Archives/edgar/data/0001627223/000162722326000032/cc-ex99_1.htm", "where": "Chemours Q3 2026 results release"}], "facts": [{"type": "Other", "text": "Chemours agreed with U.S. EPA on June 24, 2026 to resolve PFAS-related claims ($22.5M penalty plus $90M mitigation projects).", "url": "https://www.sec.gov/Archives/edgar/data/0001627223/000162722326000017/cc-ex99_1.htm"}], "topics": ["Crisis & issues", "Investor story", "ESG & sustainability"]}, "Dev Ittycheria": {"quotes": [{"text": "I'm honored to step back into the President and CEO role at MongoDB", "kind": "Press release", "date": "2026-09-28", "url": "https://mongodb.com/company/newsroom/press-releases/mongodb-announces-ceo-transition", "where": "MongoDB CEO transition release"}, {"text": "I look forward to working with our leadership team and thousands of talented employees around the world to move quickly, execute with focus", "kind": "Press release", "date": "2026-09-28", "url": "https://mongodb.com/company/newsroom/press-releases/mongodb-announces-ceo-transition", "where": "MongoDB CEO transition release"}], "facts": [{"type": "New in role", "text": "Named interim President and CEO on Sept 28, 2026 after CJ Desai left for Meta; permanent CEO search under way.", "url": "https://mongodb.com/company/newsroom/press-releases/mongodb-announces-ceo-transition"}], "topics": ["Investor story", "Reputation & brand"]}, "Lindsey (Latham) Onwuzurike": {"quotes": [], "facts": [{"type": "Hiring for team", "text": "MongoDB has posted comms roles in 2025-26 including Director, Executive Communications and a new Director, Critical Communications function (not tied to her by name).", "url": "https://www.builtincolorado.com/job/director-critical-communications/10548023"}], "topics": []}, "Tom McMahon": {"quotes": [], "facts": [{"type": "Other", "text": "Listed as a MongoDB media relations contact (communications@mongodb.com) on a MongoDB investor press release.", "url": "https://investors.mongodb.com/node/6386/pdf"}], "topics": []}, "Jannie Meskers": {"quotes": [], "facts": [], "topics": []}, "Kristin  Harlan": {"quotes": [], "facts": [], "topics": []}, "Andrew Stephens": {"quotes": [], "facts": [{"type": "Other", "text": "Listed as Chief Legal Officer on MongoDB's leadership page; previously Managing Counsel at LinkedIn.", "url": "https://www.mongodb.com/en-us/company/leadership"}], "topics": []}, "Jess Lubert": {"quotes": [], "facts": [{"type": "Other", "text": "Named as MongoDB's Investor Relations contact (ir@mongodb.com) on company releases; previously in IR at Juniper Networks and equity research at Wells Fargo Securities.", "url": "https://investors.mongodb.com/node/13671/pdf"}], "topics": []}}, "vieuPaths": {"Denise Dignam": {"path": ["Bob Knott", "Alisha Bellezza", "Denise Dignam"], "reason": ["Alisha Bellezza (President) and Denise Dignam (President Titanium Technologies and Chemical Solutions) both held senior positions at The Chemours Company in May 2023"], "midReason": ["Vieu knows Bob Knott and Alisha Bellezza are socially or professionally connected since Apr 2014."], "score": "46.4", "direct": false}, "David Lurie": {"path": ["Chris Deri", "David Lurie"], "reason": ["Chris Deri (Senior Managing Director & Leader of Digital Advisory) and David Lurie (Managing Director) both worked at Teneo between Jan 2022 and Mar 2022", "Vieu knows Chris Deri and David Lurie are socially or professionally connected since Dec 2017."], "midReason": [], "score": "6.5", "direct": true}, "Adena Friedman": {"path": ["David Michaelson", "AnnaMaria DeSalva", "Adena Friedman"], "reason": ["AnnaMaria DeSalva interacted with Adena Friedman on social media as recently as Feb 2026"], "midReason": ["Vieu knows David Michaelson and AnnaMaria DeSalva are socially or professionally connected since Apr 2023."], "score": "2.5", "direct": false}, "Marleen Geerlof": {"path": ["Chris Deri", "Marleen Geerlof"], "reason": ["Chris Deri (Senior Managing Director & Leader of Digital Advisory) and Marleen Geerlof (Managing Director) both worked at Teneo between May 2019 and Jul 2021", "Vieu knows Chris Deri and Marleen Geerlof are socially or professionally connected since Apr 2019."], "midReason": [], "score": "56.8", "direct": true}, "Will Briganti": {"path": ["Chris Deri", "Will Briganti"], "reason": ["Chris Deri (EVP, Global Practice Leader for CSR & Sustainability) and Will Briganti (Account Executive) both worked at Edelman between Oct 2005 and Dec 2007", "Will Briganti interacted with Chris Deri on social media as recently as Sep 2025"], "midReason": [], "score": "19", "direct": true}, "Caity Kauffman": {"path": ["Chris Deri", "Megan Hueter", "Caity Kauffman"], "reason": ["Megan Hueter (Vice President, Digital Marketing) and Caity Kauffman (Vice President) both worked at Endeavor between Jan 2021 and Jul 2021", "Caity Kauffman interacted with Megan Hueter on social media as recently as Sep 2024"], "midReason": ["Chris Deri (EVP, Global Practice Leader for CSR & Sustainability) and Megan Hueter (Senior Account Executive, Digital) both worked at Edelman between Jun 2007 and Nov 2009"], "score": "20.7", "direct": false}, "Kristin  Harlan": {"path": ["Chris Deri", "a mutual contact", "Kristin  Harlan"], "reason": ["Kristin Harlan wrote a LinkedIn recommendation for a contact Chris Deri has known since Dec 2017."], "midReason": [], "score": "36.5", "direct": false}}}</script>
+<script>
+const D = JSON.parse(document.getElementById("data").textContent);
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const fmt = n => Number(n).toLocaleString("en-US");
+const dt = s => { if (!s) return ""; const d = new Date(s + "T12:00:00"); return isNaN(d) ? s : d.toLocaleDateString("en-US", { month: "short", day: "numeric" }) };
+const link = (url, text, cls) => url ? `<a href="${esc(url)}" target="_blank" rel="noopener"${cls ? ` class="${cls}"` : ""}>${esc(text)}</a>` : esc(text);
+const short = t => esc(String(t || "").replace(/^(Senior Vice President|Vice President)/, m => m === "Vice President" ? "VP" : "SVP").replace(/, Sr\. Public Relations Manager$/, " Public Relations"));
+let uid = 0;
+const introId = i => "KRG-WI-1026-" + String(i + 1).padStart(2, "0");
+
+const first = n => String(n || "").split(/[ ,(]/)[0];
+function mail(m) {
+  return `<div class="mail"><div class="mail-h">
+      <div><span>From</span>${esc(m.from)}</div><div><span>To</span>${esc(m.to)}</div>${m.bcc ? `<div><span>Bcc</span>${esc(m.bcc)}</div>` : ""}<div><span>Subject</span><b>${esc(m.subject)}</b></div></div>
+    <div class="mail-b">${m.body}</div>${m.foot ? `<div class="mail-f">${m.foot}</div>` : ""}</div>`;
+}
+function draftBox(d, opts) {
+  const id = "d" + (++uid), fid = "f" + uid;
+  const warm = opts.lane === "warm";
+  const how = warm ? `Sent by ${esc(d.from)} from their own inbox · intro ID ${esc(opts.introId)} · BCC Ross and krgwarmintros@`
+                   : `Sent by Ross from ${esc(d.from === "Ross Kleinrock" ? "his" : d.from + "'s")} connected mailbox`;
+  const toName = d.to.split(",")[0];
+  let flow;
+  if (warm) {
+    const ask = mail({ from: "Ross Kleinrock, KRG Advisors", to: d.from, subject: `Quick ask: intro to ${toName}${opts.account ? " at " + opts.account : ""}`,
+      body: `<p>${esc(first(d.from))},</p><p>${esc(opts.why || "")} ${opts.how ? `You and ${esc(first(toName))} ${esc(opts.how.replace(/^Worked together at/, "worked together at"))}, so you're the warmest way in.` : ""}</p>
+             <p>I've drafted a short note in your voice. If you're happy to send it, open the draft: it's ready to go from your inbox, with me in BCC. If not, just hit pass.</p>
+             <div class="actions"><button class="btn primary" data-open="${fid}-2">Open ready-to-send draft</button><button class="btn" data-pass="${fid}">Pass</button></div><p>Thanks,<br>Ross</p>` });
+    const compose = mail({ from: d.from, to: d.to, bcc: "Ross Kleinrock; krgwarmintros@", subject: `Reconnecting, and a thought on ${opts.account || "the team"}`,
+      body: `<pre>${esc(d.text)}</pre><div class="actions"><button class="btn primary" data-sent="${fid}">Send</button></div>`,
+      foot: `Intro ID ${esc(opts.introId)} · logged in the KRG tracker when sent` });
+    flow = `<div class="flow" id="${fid}" hidden>
+      <div class="flow-step"><div class="label">Step 1 · Ross's ask lands in ${esc(first(d.from))}'s inbox</div>${ask}</div>
+      <div class="flow-step" id="${fid}-2" hidden><div class="label">Step 2 · ${esc(first(d.from))} opens the link: the draft is ready to send</div>${compose}</div></div>`;
+  } else {
+    flow = `<div class="flow" id="${fid}" hidden><div class="flow-step"><div class="label">Approved: sends from ${esc(d.from === "Ross Kleinrock" ? "Ross's" : first(d.from) + "'s")} connected mailbox</div>${mail({ from: d.from + " (connected mailbox)", to: d.to, subject: `${opts.account || ""}: a thought from KRG`,
+      body: `<pre>${esc(d.text)}</pre><div class="actions"><button class="btn primary" data-sent="${fid}">Send</button></div>`, foot: "Replies and meetings logged in the KRG tracker" })}</div></div>`;
+  }
+  return `<details class="dfold"><summary><span class="btn">Show draft</span><span class="cap">To ${esc(toName)} · ${warm ? "warm intro from " + esc(first(d.from)) : "signal-led email from " + esc(first(d.from))}</span></summary><div class="draft"><div class="draft-meta"><span><b>To</b> ${esc(d.to)}</span><span>${how}</span></div>
+    <pre id="${id}">${esc(d.text)}</pre>
+    <div class="actions">${warm ? `<button class="btn primary" data-act="${fid}-m" aria-pressed="false" data-on="On this week's adviser call">Add to adviser call</button><button class="btn" data-flow="${fid}" aria-expanded="false">Launch email</button>` : `<button class="btn primary" data-flow="${fid}" aria-expanded="false">Approve</button>`}<button class="btn" data-copy="${id}">Copy draft</button></div>
+    ${flow}</div></details>`;
+}
+const WHY = { "Decision maker": "Owns the budget for outside counsel", "Champion": "Senior voice who can bring KRG in", "Practitioner": "Runs the work day to day", "Executive sponsor": "Sets the agenda; reach through a relay", "Legal": "Owns the litigation and regulatory side; often brings in outside advisers", "Investor relations": "Owns the investor story; activists and CEO changes land here first" };
+function committeeHtml(list, acct) {
+  const pods = ["Communications & Corporate Affairs", "Public Affairs & Government Relations", "Executive Sponsors", "Legal & Investor Relations"];
+  const warmN = list.filter(c => c.warm).length;
+  return `<p class="note" style="margin-top:10px">${list.length} people · ${warmN} reachable through an adviser · the rest can be added to cold outreach or LinkedIn.</p>
+  ${pods.map(p => { const ps = list.filter(c => c.pod === p); if (!ps.length) return "";
+    return `<div class="label" style="margin-top:12px">${esc(p)}</div><div class="people">${ps.map((c, j) => { const k = "p" + (++uid);
+      return `<div class="prow"><div class="pinfo"><div>${link(c.vieuUrl || c.linkedIn || c.sourceUrl, c.name)} <span class="tag">${esc(c.role)}</span>${c.warm ? ` <span class="tag warm">Warm via ${esc(c.introducer)}</span>` : ""}</div>
+        <div class="r">${esc(c.title)}</div><div class="r">${esc(WHY[c.role] || "")}</div>${c.check ? `<div class="r" style="color:var(--note)">${esc(c.check)}</div>` : ""}${c.sourceUrl ? `<div class="r">${link(c.sourceUrl, "Public source", "src")}</div>` : ""}</div>
+        <div class="pact">${c.linkedIn ? `<a class="btn" href="${esc(c.linkedIn)}" target="_blank" rel="noopener">Connect on LinkedIn</a>` : ""}
+          ${c.warm ? `<button class="btn" data-act="${k}a" aria-pressed="false" data-on="Intro asked">Ask ${esc(first(c.introducer))} for intro</button>` : `<button class="btn" data-act="${k}a" aria-pressed="false" data-on="In cold outreach">Add to cold outreach</button>`}
+          <button class="btn" data-act="${k}b" aria-pressed="false" data-on="In tracker">Add to tracker</button></div></div>` }).join("")}</div>` }).join("")}`;
+}
+
+/* ---------- shared: company -> people -> way in ---------- */
+const ARROW = `<svg class="arr" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+const JOIN = `<div class="join">${ARROW}</div>`;
+const LINE = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14" stroke="currentColor" stroke-width="2"/></svg>`;
+const plain = n => String(n || "").replace(/\s*\(.*?\)/g, "").trim();
+const initials = n => plain(n).split(/\s+/).filter(Boolean).map(w => w[0]).slice(0, 2).join("");
+const chain = parts => `<div class="chain">${parts.map(([t, c]) => `<span class="${c || ""}">${esc(t)}</span>`).join(LINE)}</div>`;
+const shortT = t => String(t || "").replace(/\s+/g, " ").trim().replace(/^Senior Vice President/, "SVP").replace(/^Executive Vice President/, "EVP").replace(/^Vice President/, "VP").replace(/, Sr\. Public Relations Manager$/, " Public Relations").replace(/^Sr\. Director/, "Senior Director");
+const person = (p, sub) => `<div class="xp"><i class="av ${p.role === "Decision maker" ? "dm" : p.warm ? "wm" : ""}" aria-hidden="true">${esc(initials(p.name))}</i><div><b>${esc(plain(p.name))}${p.role ? ` <span class="rtag">${esc(p.role)}</span>` : ""}</b><span class="cap">${esc(shortT(sub ?? p.title))}</span></div></div>`;
+const rank = c => c.role === "Decision maker" ? 0 : c.warm ? 1 : c.role === "Investor relations" || c.role === "Executive sponsor" ? 2 : 3;
+const keyPeople = (a, n) => [...a.committee].sort((x, y) => rank(x) - rank(y)).slice(0, n);
+function wayIn(a) {
+  if (a.route === "note") return [[["Ross", ""], [plain(a.draft.to.split(",")[0]), "n"]], "Free two-page exposure brief"];
+  const X = D.example, parts = [["KRG", ""], [a.best.introducer, "w"], [plain(a.best.target), "w"]];
+  if (X.id === a.id && X.decision !== X.relay) parts.push([X.decision, "d"]);
+  return [parts, a.best.how];
+}
+const wayPill = a => a.route === "note" ? `<span class="way note">Signal-led email from Ross</span>` : `<span class="way warm">Warm via ${esc(a.best.introducer)}</span>`;
+const geoId = a => "geo-" + a.account.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+function evidence(acct) {
+  const E = (D.evidence || {})[acct]; if (!E) return "";
+  return `<details class="dfold evid"><summary><span class="btn">Signal evidence · ${E.length}</span><span class="cap">what happened, who, the source and why it matters</span></summary>
+    <div class="evl">${E.map(e => `<div class="evr"><div class="evh"><b>${esc(e.label)}</b>${e.num ? `<span class="tag rtag2">${esc(e.num)}</span>` : ""}<span class="rel ${e.rel === "High" ? "hi" : ""}">${esc(e.rel)} relevance</span></div>
+      <p>${esc(e.what)}</p>
+      <p class="cap">${e.who ? esc(e.who) + " · " : ""}${e.date ? dt(e.date) + " · " : ""}${e.url ? link(e.url, e.src, "src") : esc(e.src)}</p>
+      <p class="cap"><b>Why it matters:</b> ${esc(e.why)}</p></div>`).join("")}</div></details>`;
+}
+const rossTag = g => "";
+function sigList(acct, base) {
+  const E = (D.evidence || {})[acct] ? D.evidence[acct].slice() : (base ? [base] : []);
+  if (!(D.evidence || {})[acct] && (D.extra || {})[acct]) E.push(...D.extra[acct]);
+  return E;
+}
+const host = u => { try { return new URL(u).hostname.replace(/^www\./, ""); } catch (e) { return "Source"; } };
+function stackLine(E) {
+  const S = E.filter(e => !/^Caution/.test(e.label));
+  return `<div class="stkline"><span class="stkc"><b>${S.length}</b> signal${S.length === 1 ? "" : "s"} stacking</span>${S.map(e => `<span class="sig${e.url ? " nw" : ""}">${esc(e.chip || e.label)}</span>`).join("")}</div>`;
+}
+function evidenceBox(E) {
+  if (!E.length) return "";
+  return `<details class="dfold evid"><summary><span class="btn">Signal evidence · ${E.length}</span><span class="cap">what happened, who, the source and why it matters</span></summary>
+    <div class="evl">${E.map(e => `<div class="evr${/^Caution/.test(e.label) ? " caut" : ""}"><div class="evh"><b>${esc(e.label)}</b><span class="rel ${e.rel === "High" ? "hi" : ""}">${esc(e.rel)} relevance</span></div>
+      <p>${esc(e.what)}</p>
+      <p class="cap">${e.who ? esc(e.who) + " · " : ""}${e.date ? dt(e.date) + " · " : ""}${e.url ? link(e.url, e.src || host(e.url), "src") : esc(e.src)}</p>
+      <p class="cap"><b>Why it matters:</b> ${esc(e.why)}</p></div>`).join("")}</div></details>`;
+}
+const LEGEND = `<span class="legend"><span class="sig nw">Purple</span> news, filings and job posts, linked · <span class="sig">Grey</span> Vieu data</span>`;
+const monthBase = a => ({ label: a.signalType, what: a.signal, date: a.signalDate, url: a.sourceUrl, who: a.lead ? `${a.lead.name}, ${a.lead.title}` : a.company, rel: "High", why: a.why });
+const geoBase = a => ({ label: a.exposureType, what: a.signal, date: a.signalDate, url: a.sourceUrl, who: a.account, rel: "High", why: a.angle });
+/* ---------- Stakeholders: why each person was picked ---------- */
+const RANK = { "Executive sponsor": 0, "Decision maker": 1, "Legal": 2, "Investor relations": 3, "Champion": 4, "Practitioner": 5 };
+const ROLE_SHOW = { "Executive sponsor": "Executive sponsor", "Decision maker": "Decision maker", "Legal": "Legal", "Investor relations": "Investor relations", "Champion": "Champion", "Practitioner": "Practitioner" };
+const LI = `<svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><rect width="24" height="24" rx="4" fill="#0A66C2"/><path fill="#fff" d="M7.1 9.6h2.6V18H7.1zM8.4 5.6a1.5 1.5 0 110 3 1.5 1.5 0 010-3zM11.4 9.6h2.5v1.2c.4-.7 1.2-1.4 2.6-1.4 2.7 0 3.2 1.8 3.2 4.1V18h-2.6v-4c0-1 0-2.2-1.4-2.2s-1.6 1-1.6 2.1V18h-2.6z"/></svg>`;
+function peopleRows() {
+  const X = D.peopleExtra || {}, EV = (D.events && D.events.appearances) || [];
+  const rows = [];
+  D.week.forEach(a => a.committee.forEach(c => {
+    const x = X[c.name] || X[c.name.replace(/\s+/g, " ")] || { quotes: [], facts: [], topics: [] };
+    const src = [];
+    const vp = (D.vieuPaths || {})[c.name];
+    if (vp) src.push(["warm", vp.direct ? `Warm intro · via ${vp.path[0]}` : `Warm path · ${vp.path.slice(0, -1).join(" → ")}`]);
+    else if (c.warm) src.push(["warm", `Warm intro · via ${c.introducer}`]);
+    if (/joined|new\)/i.test(c.title) || (x.facts || []).some(f => f.type === "New in role")) src.push(["new", "New in role"]);
+    if ((x.facts || []).some(f => f.type === "Speaker") || EV.some(e => e.person === c.name)) src.push(["new", "Speaker at events"]);
+    if ((x.facts || []).some(f => f.type === "Ex rival adviser")) src.push(["new", "Adviser-firm background"]);
+    if ((x.facts || []).some(f => f.type === "Hiring for team")) src.push(["new", "Hiring for team"]);
+    if ((x.quotes || []).length) src.push(["new", "Said it publicly"]);
+    src.push(["", "Vieu buying committee"]);
+    const how = vp ? vp.reason.join(" ") : c.warm && a.best && a.best.target === c.name ? a.best.how : "";
+    rows.push({ a, c, x, src, how, rank: RANK[c.role] ?? 9 });
+  }));
+  return rows.sort((p, q) => p.rank - q.rank || p.a.account.localeCompare(q.a.account));
+}
+function pRow(r, cls = "prow2") { const { a, c, x, src, how } = r, Q = x.quotes || [], F = x.facts || [];
+    const vieu = c.vieuUrl && /vieu\.com/.test(c.vieuUrl) ? c.vieuUrl : "";
+    const data = { acct: [a.account], role: [c.role], src: src.map(s => /^Warm (intro|path)/.test(s[1]) ? "Warm intro" : s[1]), topic: x.topics || [] };
+    const q0 = Q[0], rest = Q.slice(1);
+    const qHtml = q => `<p class="pq">“${esc(q.text)}”</p><p class="cap">${esc(q.kind)}${q.where ? " · " + esc(q.where) : ""}${q.date ? " · " + esc(dtm(q.date)) : ""} · ${link(q.url, "Open ↗", "src")}</p>`;
+    return `<tr class="${cls}" ${Object.entries(data).map(([k, v]) => `data-${k}="${esc(v.join("|"))}"`).join(" ")} data-q="${esc((c.name + " " + c.title + " " + a.account).toLowerCase())}">
+      <td><div class="pnm">${link(vieu || c.linkedIn || c.sourceUrl || c.vieuUrl, c.name)}${c.linkedIn ? `<a class="li" href="${esc(c.linkedIn)}" target="_blank" rel="noopener" aria-label="LinkedIn">${LI}</a>` : ""}</div>
+        <div class="cap">${esc(c.title)}</div>
+        <div class="pbtns">${vieu ? `<a class="pill-a" href="${esc(vieu)}" target="_blank" rel="noopener">Email in Vieu</a>` : ""}${c.linkedIn ? `<a class="pill-b" href="${esc(c.linkedIn)}" target="_blank" rel="noopener">Send LinkedIn DM</a>` : ""}</div></td>
+      <td><b>${esc(a.account.replace(/^The /, ""))}</b><div class="cap">${esc(c.location || "")}</div></td>
+      <td><span class="rtag">${esc(ROLE_SHOW[c.role] || c.role)}</span><div class="cap">${esc(WHY[c.role] || "")}</div></td>
+      <td><div class="srcs">${src.map(([k, t]) => `<span class="stag ${k}">${esc(t)}</span>`).join("")}</div>${how ? `<div class="cap">${esc(how)}</div>` : ""}</td>
+      <td>${q0 ? qHtml(q0) : F.length ? F.slice(0, 1).map(f => `<p class="pq2">${esc(f.text)}</p><p class="cap">Public record${f.url ? " · " + link(f.url, "Open ↗", "src") : ""}</p>`).join("") : `<p class="cap">No public posts found. Picked for their role in Vieu's buying committee.</p>`}
+        ${(q0 ? rest.length + F.length : F.length - 1) > 0 ? `<details class="pmore"><summary>+ ${q0 ? rest.length + F.length : F.length - 1} more</summary>${rest.map(qHtml).join("")}${(q0 ? F : F.slice(1)).map(f => `<p class="cap"><b>${esc(f.type)}:</b> ${esc(f.text)}${f.url ? " · " + link(f.url, "Source", "src") : ""}</p>`).join("")}</details>` : ""}
+        <div class="ptags">${(x.topics || []).map(t => `<span class="sig">${esc(t)}</span>`).join("")}</div></td></tr>`;
+}
+const PHEAD = `<thead><tr><th>Person</th><th>Account · location</th><th>Role</th><th>Why picked</th><th>In their own words</th></tr></thead>`;
+function people() {
+  const rows = peopleRows();
+  const count = (fn) => v => rows.filter(r => fn(r).includes(v)).length;
+  const G = [
+    ["Account", "acct", D.week.map(a => a.account), r => [r.a.account]],
+    ["Role", "role", Object.keys(RANK), r => [r.c.role]],
+    ["Why picked", "src", ["Warm intro", "New in role", "Speaker at events", "Adviser-firm background", "Hiring for team", "Said it publicly"], r => r.src.map(s => /^Warm (intro|path)/.test(s[1]) ? "Warm intro" : s[1])],
+    ["Topic", "topic", ["Crisis & issues", "Public affairs & policy", "AI narrative", "ESG & sustainability", "Reputation & brand", "Investor story", "Geopolitics", "Team build"], r => r.x.topics || []]
+  ];
+  const chips = G.map(([lab, key, vals, fn]) => { const n = count(fn);
+    const vs = vals.filter(v => n(v) > 0);
+    return vs.length ? `<div class="pf"><span class="pfl">${esc(lab)} · any of</span><div class="pfc">${vs.map(v => `<button class="pchip" data-pf="${key}" data-v="${esc(v)}" aria-pressed="false">${esc(key === "acct" ? v.replace(/^The /, "") : v)} <b>${n(v)}</b></button>`).join("")}</div></div>` : ""; }).join("");
+  return `<div class="sec"><h2>Stakeholders this week: ${rows.length} people</h2>
+      <p class="cap">Everyone Vieu picked across this week's ${D.week.length} accounts, and exactly why: their role in the decision, how KRG reaches them, and what they've said in public.</p>
+      <div class="pfs">${chips}<div class="pf"><input class="psearch" type="search" placeholder="Search name or title" aria-label="Search name or title"></div></div>
+      <p class="cap"><span id="pcount">${rows.length} people</span> · ranked by seniority · <button class="linkbtn" data-pclear>Clear filters</button></p>
+      <div class="ptable"><table><thead><tr><th>Person</th><th>Account · location</th><th>Role</th><th>Why picked</th><th>In their own words</th></tr></thead>
+      <tbody>${rows.map(r => pRow(r)).join("")}</tbody></table></div></div>`;
+}
+const dtm = d => /^\d{4}-\d{2}$/.test(d) ? new Date(d + "-15T12:00:00").toLocaleDateString("en-US", { month: "short", year: "numeric" }) : dt(d);
+function pFilter() {
+  const on = {}; document.querySelectorAll(".pchip[aria-pressed=true]").forEach(b => (on[b.dataset.pf] = on[b.dataset.pf] || []).push(b.dataset.v));
+  const q = (document.querySelector(".psearch") || {}).value?.toLowerCase().trim() || "";
+  let n = 0;
+  document.querySelectorAll(".prow2").forEach(tr => {
+    const ok = Object.entries(on).every(([k, vs]) => { const have = (tr.dataset[k] || "").split("|"); return vs.some(v => have.includes(v)); }) && (!q || tr.dataset.q.includes(q));
+    tr.hidden = !ok; if (ok) n++;
+  });
+  const c = document.getElementById("pcount"); if (c) c.textContent = n + (n === 1 ? " person" : " people");
+}
+document.addEventListener("click", e => {
+  const b = e.target.closest(".pchip"); if (b) { b.setAttribute("aria-pressed", b.getAttribute("aria-pressed") !== "true"); pFilter(); return; }
+  if (e.target.closest("[data-pclear]")) { document.querySelectorAll(".pchip").forEach(x => x.setAttribute("aria-pressed", "false")); const s = document.querySelector(".psearch"); if (s) s.value = ""; pFilter(); }
+});
+document.addEventListener("input", e => { if (e.target.closest(".psearch")) pFilter(); });
+const segTag = n => n ? `<span class="tag segtag">${esc(D.segments[n - 1].short)}</span>` : "";
+
+/* ---------- This week ---------- */
+function weekRow(a, i) {
+  const warm = a.route !== "note", [parts, how] = wayIn(a), ps = keyPeople(a, 3);
+  return `<details class="row" id="${esc(a.id)}"${i === 0 ? " open" : ""}>
+    <summary><div class="r-head"><i class="wn">${i + 1}</i><b>${esc(a.account)}</b><span class="r-sig">${esc(a.signal.short)}${a.signal.date ? " · " + dt(a.signal.date) : ""}</span></div>
+      <span class="chev" aria-hidden="true">›</span><div class="r-route">${wayPill(a)}</div><div class="r-stk">${stackLine(sigList(a.account))}</div></summary>
+    <div class="r-body">
+      <div class="mini3">
+        <div class="mc"><div class="label">Why now</div><span>${esc(a.signal.why)}</span><span>${rossTag(a.signal) || segTag(a.segment)} ${link(a.signal.url, "Source", "src")}</span></div>
+        ${JOIN}
+        <div class="mc"><div class="label">People</div>${ps.map(p => person(p)).join("")}<span class="cap">+${a.committee.length - ps.length} more in the committee · <button class="linkbtn" data-tab="people">Why these people</button></span></div>
+        ${JOIN}
+        <div class="mc"><div class="label">Way in</div>${chain(parts)}<span class="cap">${esc(how)}</span></div>
+      </div>
+      ${evidenceBox(sigList(a.account))}
+      ${draftBox(a.draft, { lane: warm ? "warm" : "cold", introId: introId(i), account: a.account, why: `${a.account} news: ${a.signal.short}.`, how: warm ? a.best.how : "" })}
+      <details class="sub"><summary>Stakeholders · ${a.committee.length} people · why each was picked</summary><div class="ptable" style="margin-top:10px"><table>${PHEAD}<tbody>${peopleRows().filter(r => r.a === a).map(r => pRow(r, "prow3")).join("")}</tbody></table></div></details>
+    </div></details>`;
+}
+function week() {
+  const W = D.week, warm = W.filter(a => a.route !== "note").length;
+  return `<div class="sec"><h2>Top accounts this week: ${W.length}</h2>
+      <p class="cap">The ${W.length} accounts in your Top 1K most ready to talk now. Open one to see why, who, and a ready draft.</p>
+      <p class="cap">${LEGEND}</p>
+      <div class="strip"><div><b class="g">${warm}</b><span>warm intros</span></div><div><b class="a">${W.length - warm}</b><span>signal-led emails</span></div><button class="btn" data-tab="outreach">Open outreach</button></div></div>
+    <div class="wkl">${W.map(weekRow).join("")}</div>
+    <div class="sec"><h2>More accounts where your signals stack</h2>
+      <p class="cap">In Vieu, ${D.stacked.n3} of your Top 1K accounts show 3 or more of your signals. These ${D.stacked.accounts.filter(a => !W.some(w => w.account === a.account)).length} also have a source for each one.</p>
+      <div class="stk">${D.stacked.accounts.filter(a => !W.some(w => w.account === a.account)).map(a => `<div class="stkr"><div><b>${esc(a.account)}</b><span class="cap">${a.route === "Adviser path" ? "Warm path" : "No path yet"}</span></div>
+        ${stackLine(sigList(a.account))}${evidenceBox(sigList(a.account))}</div>`).join("")}</div></div>
+    <details class="list" style="padding:0"><summary style="padding:14px 18px;cursor:pointer"><b>On deck</b> <span class="muted small">· ${D.also.length} more if one stalls</span></summary>
+      <div style="overflow-x:auto"><table><thead><tr><th>Account</th><th>Signal</th><th>Way in</th></tr></thead><tbody>
+      ${D.also.map(a => `<tr><td><b>${esc(a.account)}</b></td><td>${esc(a.signal)}</td><td><span class="dot ${a.route === "note" ? "note" : "warm"}"></span>${a.best ? `${esc(a.best.introducer)} → ${esc(a.best.target)}` : esc(a.lead || "Comms lead to confirm")}</td></tr>`).join("")}
+      </tbody></table></div></details>`;
+}
+
+/* ---------- Geopolitical campaign ---------- */
+function campaign() {
+  const C = D.campaign, A = C.adviser;
+  return `<div class="sec"><div class="label">On request · built in ${esc(C.buildTime.toLowerCase())}</div><h2>"Today I want leads for our geopolitical adviser."</h2>
+      <p class="cap">Ross asked for leads for ${esc(A.name)}, KRG's geopolitical adviser. Vieu found ${C.accounts.length} US accounts in your Top 1K hit by tariffs or conflict, each with a draft.</p><p class="cap">${LEGEND}</p></div>
+  <div class="layout">
+    <div class="list">${C.accounts.map((a, i) => { const warm = a.route !== "note", to = { name: a.to.name, role: "" };
+      const parts = warm ? [[a.introducer, "w"], [plain(a.to.name), ""]] : [["Aidan", "g"], [plain(a.to.name), ""]];
+      return `<details class="row" id="${geoId(a)}">
+        <summary><div class="r-head"><b>${esc(a.account)}</b><span class="r-sig">${esc(a.exposureType)} · ${dt(a.signalDate)}</span></div>
+          <span class="chev" aria-hidden="true">›</span>
+          <div class="r-route">${warm ? `<span class="way warm">Warm via ${esc(a.introducer)}</span>` : `<span class="way geo">Signal-led email from Aidan</span>`}</div><div class="r-stk">${stackLine(sigList(a.account, geoBase(a)))}</div></summary>
+        <div class="r-body">
+          <div class="mini3">
+            <div class="mc"><div class="label">Why now</div><span>${esc(a.signal)}</span>${link(a.sourceUrl, "Source", "src")}</div>
+            ${JOIN}
+            <div class="mc"><div class="label">Person</div>${person(to, a.to.title && a.to.title !== "to confirm" ? a.to.title : "Title to confirm")}</div>
+            ${JOIN}
+            <div class="mc"><div class="label">Way in</div>${chain(parts)}<span class="cap">${warm ? "Introduces Aidan" : "Free exposure brief, sent by Ross"}</span></div>
+          </div>
+          ${evidenceBox(sigList(a.account, geoBase(a)))}
+          ${draftBox({ from: warm ? a.introducer : "Aidan Harte", to: a.to.name + (a.to.title && a.to.title !== "to confirm" ? ", " + a.to.title : ""), text: a.draft.text, check: a.draft.check }, { lane: warm ? "warm" : "cold", introId: "KRG-WI-GEO-" + String(i + 1).padStart(2, "0"), account: a.account, why: `${a.account}: ${a.signal}`, how: "" })}
+        </div></details>` }).join("")}</div>
+    <aside class="rail"><div class="panel">
+      <div class="label">The adviser</div><h3>${esc(A.name)}</h3><p class="cap">${esc(A.title)}</p>
+      <p class="quote">${esc(A.thesis)}</p>
+      <p class="small">${link(A.thesisSource, "His KRG article")} · ${link(A.bioSources[0], "Bio")}</p></div></aside>
+  </div>
+  <p class="note">Nothing goes out in Aidan's name without his approval.</p>`;
+}
+
+/* ---------- New target companies ---------- */
+function monthly() {
+  const M = D.monthly;
+  const way = a => a.route !== "note" ? `<span class="way warm">Warm via ${esc(a.introducer)}</span><span>→ ${esc(a.target)}</span>`
+    : a.lead ? `<span class="way note">Signal-led email</span><span>→ ${link(a.lead.vieuUrl, a.lead.name)}, ${esc(a.lead.title)}</span>` : `<span class="way tbc">Comms lead to confirm</span>`;
+  return `<div class="sec"><div class="label">Monthly · new companies for your Top 1K</div><h2>${M.accounts.length} new companies this month</h2>
+      <p class="cap">${M.totalFound} found · ${M.accounts.length} fit KRG's target profile: US headquarters, international operations, $500M–$10B revenue. None are in your Top 1K yet: approve one and it joins the list.</p><p class="cap">${LEGEND}</p></div>
+  <div class="list">${M.accounts.map(a => `<div class="mrow">
+      <div class="r-head"><b>${esc(a.company)}</b><span class="r-sig">${esc(a.signalType)} · ${dt(a.signalDate)}</span>${rossTag(a) || segTag(a.segment)}</div>
+      <p class="small">${esc(a.signal)} ${link(a.sourceUrl, "Source", "src")}</p>
+      <div class="r-route" style="gap:4px 8px">${way(a)}</div>
+      ${stackLine(sigList(a.company, monthBase(a)))}
+      ${evidenceBox(sigList(a.company, monthBase(a)))}
+    </div>`).join("")}</div>`;
+}
+
+/* ---------- How it works ---------- */
+const DELIVER = [["<svg viewBox=\"0 0 24 24\" width=\"26\" height=\"26\" fill=\"#4A154B\" role=\"img\" aria-label=\"slack\"><path d=\"M5.042 15.165a2.528 2.528 0 0 1-2.52 2.523A2.528 2.528 0 0 1 0 15.165a2.527 2.527 0 0 1 2.522-2.52h2.52v2.52zM6.313 15.165a2.527 2.527 0 0 1 2.521-2.52 2.527 2.527 0 0 1 2.521 2.52v6.313A2.528 2.528 0 0 1 8.834 24a2.528 2.528 0 0 1-2.521-2.522v-6.313zM8.834 5.042a2.528 2.528 0 0 1-2.521-2.52A2.528 2.528 0 0 1 8.834 0a2.528 2.528 0 0 1 2.521 2.522v2.52H8.834zM8.834 6.313a2.528 2.528 0 0 1 2.521 2.521 2.528 2.528 0 0 1-2.521 2.521H2.522A2.528 2.528 0 0 1 0 8.834a2.528 2.528 0 0 1 2.522-2.521h6.312zM18.956 8.834a2.528 2.528 0 0 1 2.522-2.521A2.528 2.528 0 0 1 24 8.834a2.528 2.528 0 0 1-2.522 2.521h-2.522V8.834zM17.688 8.834a2.528 2.528 0 0 1-2.523 2.521 2.527 2.527 0 0 1-2.52-2.521V2.522A2.527 2.527 0 0 1 15.165 0a2.528 2.528 0 0 1 2.523 2.522v6.312zM15.165 18.956a2.528 2.528 0 0 1 2.523 2.522A2.528 2.528 0 0 1 15.165 24a2.527 2.527 0 0 1-2.52-2.522v-2.522h2.52zM15.165 17.688a2.527 2.527 0 0 1-2.52-2.523 2.526 2.526 0 0 1 2.52-2.52h6.313A2.527 2.527 0 0 1 24 15.165a2.528 2.528 0 0 1-2.522 2.523h-6.313z\"/></svg>", "Slack", "Monday picks and reply alerts in a KRG channel"], ["<svg viewBox=\"0 0 24 24\" width=\"26\" height=\"26\" fill=\"#0F9D58\" role=\"img\" aria-label=\"googlesheets\"><path d=\"M11.318 12.545H7.91v-1.909h3.41v1.91zM14.728 0v6h6l-6-6zm1.363 10.636h-3.41v1.91h3.41v-1.91zm0 3.273h-3.41v1.91h3.41v-1.91zM20.727 6.5v15.864c0 .904-.732 1.636-1.636 1.636H4.909a1.636 1.636 0 0 1-1.636-1.636V1.636C3.273.732 4.005 0 4.909 0h9.318v6.5h6.5zm-3.273 2.773H6.545v7.909h10.91v-7.91zm-6.136 4.636H7.91v1.91h3.41v-1.91z\"/></svg>", "Google Sheets", "The master tracker: every account, person, draft and status"], ["<svg viewBox=\"0 0 24 24\" width=\"26\" height=\"26\" fill=\"#D97757\" role=\"img\" aria-label=\"claude\"><path d=\"m4.7144 15.9555 4.7174-2.6471.079-.2307-.079-.1275h-.2307l-.7893-.0486-2.6956-.0729-2.3375-.0971-2.2646-.1214-.5707-.1215-.5343-.7042.0546-.3522.4797-.3218.686.0608 1.5179.1032 2.2767.1578 1.6514.0972 2.4468.255h.3886l.0546-.1579-.1336-.0971-.1032-.0972L6.973 9.8356l-2.55-1.6879-1.3356-.9714-.7225-.4918-.3643-.4614-.1578-1.0078.6557-.7225.8803.0607.2246.0607.8925.686 1.9064 1.4754 2.4893 1.8336.3643.3035.1457-.1032.0182-.0728-.164-.2733-1.3539-2.4467-1.445-2.4893-.6435-1.032-.17-.6194c-.0607-.255-.1032-.4674-.1032-.7285L6.287.1335 6.6997 0l.9957.1336.419.3642.6192 1.4147 1.0018 2.2282 1.5543 3.0296.4553.8985.2429.8318.091.255h.1579v-.1457l.1275-1.706.2368-2.0947.2307-2.6957.0789-.7589.3764-.9107.7468-.4918.5828.2793.4797.686-.0668.4433-.2853 1.8517-.5586 2.9021-.3643 1.9429h.2125l.2429-.2429.9835-1.3053 1.6514-2.0643.7286-.8196.85-.9046.5464-.4311h1.0321l.759 1.1293-.34 1.1657-1.0625 1.3478-.8804 1.1414-1.2628 1.7-.7893 1.36.0729.1093.1882-.0183 2.8535-.607 1.5421-.2794 1.8396-.3157.8318.3886.091.3946-.3278.8075-1.967.4857-2.3072.4614-3.4364.8136-.0425.0304.0486.0607 1.5482.1457.6618.0364h1.621l3.0175.2247.7892.522.4736.6376-.079.4857-1.2142.6193-1.6393-.3886-3.825-.9107-1.3113-.3279h-.1822v.1093l1.0929 1.0686 2.0035 1.8092 2.5075 2.3314.1275.5768-.3218.4554-.34-.0486-2.2039-1.6575-.85-.7468-1.9246-1.621h-.1275v.17l.4432.6496 2.3436 3.5214.1214 1.0807-.17.3521-.6071.2125-.6679-.1214-1.3721-1.9246L14.38 17.959l-1.1414-1.9428-.1397.079-.674 7.2552-.3156.3703-.7286.2793-.6071-.4614-.3218-.7468.3218-1.4753.3886-1.9246.3157-1.53.2853-1.9004.17-.6314-.0121-.0425-.1397.0182-1.4328 1.9672-2.1796 2.9446-1.7243 1.8456-.4128.164-.7164-.3704.0667-.6618.4008-.5889 2.386-3.0357 1.4389-1.882.929-1.0868-.0062-.1579h-.0546l-6.3385 4.1164-1.1293.1457-.4857-.4554.0608-.7467.2307-.2429 1.9064-1.3114Z\"/></svg>", "Claude artifact", "A live page like this one, refreshed every week"], ["<svg viewBox=\"0 0 24 24\" width=\"26\" height=\"26\" fill=\"none\" stroke=\"#7744FF\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" role=\"img\" aria-label=\"Email\"><rect width=\"20\" height=\"16\" x=\"2\" y=\"4\" rx=\"2\"/><path d=\"m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7\"/></svg>", "Email digest", "One Monday email for Ross and the advisers, in Gmail or Outlook"]];
+function how() {
+  const O = D.overview, M = D.monthly, C = D.campaign, W = D.week, X = D.example;
+  const A = W.find(a => a.id === X.id);
+  return `
+  <div><h2 class="mega">Powering KRG's Demand Gen engine with Vieu</h2><p class="lede">Qualified calls on your calendar, every week.</p></div>
+
+  <div class="sec"><h2>What Vieu does</h2>
+    <div class="mini3">
+      <div class="fk"><div class="step"><i>1</i>Find the right company</div><span class="cap">Vieu watches your Top 1K, plus new companies worldwide that fit KRG. Your signals pick who needs KRG now: a new comms or public affairs leader, a move into a sensitive market, layoffs or a rebrand.</span></div>
+      ${JOIN}
+      <div class="fk"><div class="step"><i>2</i>Find the right stakeholders</div><span class="cap">The comms, legal and investor relations leaders who decide, influence and sign off.</span></div>
+      ${JOIN}
+      <div class="fk"><div class="step"><i>3</i>Find the way in</div><span class="cap">Three levers:</span>
+        <div class="levers"><button class="way warm" data-tab="outreach">Warm intros</button><button class="way note" data-tab="outreach">Signal-led outreach</button><button class="way geo" data-tab="events">Events</button></div></div>
+    </div>
+    <div class="live"><div class="live-h"><span class="livebadge">Example</span><h3>${esc(X.account)}: from signal to a ready-to-send intro</h3></div>
+    <div class="story">
+      <div class="st"><span class="sn">1 · The signal</span><b>${dt(A.signal.date)}: ${esc(X.account)} names a new Chief Corporate Affairs Officer, ${esc(X.decision)}.</b><span class="cap">New chiefs review outside advisers in their first 100 days.</span></div>
+      ${JOIN}
+      <div class="st"><span class="sn">2 · The people</span><b>${esc(X.decision)} decides. ${esc(X.relay)}, SVP Public Relations, can bring Ross in.</b><span class="cap">Plus ${A.committee.length - 2} more in the buying committee.</span></div>
+      ${JOIN}
+      <div class="st"><span class="sn">3 · The way in: three levers</span>
+        <div class="lv"><span class="way warm">Warm intro · best</span><span>KRG adviser ${esc(X.introducer)} worked with <b>${esc(X.relay)}</b>, SVP Public Relations at M&amp;T, at FleishmanHillard, 2012–2014.</span></div>
+        <div class="lv"><span class="way note">Signal-led outreach</span><span>Ross emails <b>${esc(X.decision)}</b>, M&amp;T's new Chief Corporate Affairs Officer, about his first 100 days.</span></div>
+        <div class="lv"><span class="way geo">Events</span><span>${esc(X.relay)} is in New York: invite him to the KRG dinner. M&amp;T presents at the Goldman Sachs Financial Services Conference each December.</span></div></div>
+      ${JOIN}
+      <div class="st"><span class="sn">4 · Ready</span><b>Vieu drafts ${esc(first(X.introducer))}'s intro to ${esc(first(X.relay))}. ${esc(first(X.introducer))} sends it from his inbox.</b><button class="btn primary" data-goto="${esc(X.id)}">Open the draft</button></div>
+    </div></div></div>
+
+  <div class="sec"><h2>Campaigns Vieu runs</h2>
+    <div class="camps">
+      <button class="camp" data-tab="week"><span class="cad">Every week</span><span class="ct">Weekly Priority Accounts from Top 1K</span>
+        <span class="cn"><b>${W.length}</b><span><strong>accounts this week</strong><small>picked by fresh signals</small></span></span><span class="go" aria-hidden="true">${ARROW}</span></button>
+      <button class="camp" data-tab="new"><span class="cad">Every month</span><span class="ct">Priority Companies beyond Top 1K</span>
+        <span class="cn"><b>${M.accounts.length}</b><span><strong>new companies this month</strong><small>found in news worldwide, fit KRG</small></span></span><span class="go" aria-hidden="true">${ARROW}</span></button>
+      <button class="camp geo" data-tab="campaign"><span class="cad">On request</span><span class="ct">Specific Campaigns</span>
+        <span class="cn"><b>${C.accounts.length}</b><span><strong>accounts for Aidan Harte</strong><small>geopolitical campaign, built in a day</small></span></span><span class="go" aria-hidden="true">${ARROW}</span></button>
+    </div>
+    <div class="chips"><span class="cap">Campaigns we can run next</span><span class="chip">AI risk watch</span><span class="chip">Data centres</span><span class="chip">First 100 days</span><span class="chip">Activist watch</span><span class="chip">One per adviser</span></div></div>
+
+  <div class="sec"><h2>Delivery mode to KRG</h2>
+    <div class="dlv">${DELIVER.map(([ic, h, t]) => `<div class="dv"><span class="ic">${ic}</span><b>${h}</b><span class="cap">${t}</span></div>`).join("")}</div></div>`;
+}
+
+/* ---------- Outreach ---------- */
+const GOAL = "Nov 6";
+function outreach() {
+  const W = D.week, C = D.campaign;
+  const cold = [
+    ...W.filter(a => a.route === "note").map(a => ({ id: a.id, account: a.account, to: plain(a.draft.to.split(",")[0]), what: a.signal.short, from: "Ross" })),
+    ...C.accounts.filter(a => a.route === "note").map(a => ({ id: geoId(a), account: a.account, to: plain(a.to.name), what: a.exposureType.split(" · ")[0], from: "Aidan" })),
+  ];
+  const focus = [
+    ...W.map(a => ({ id: a.id, account: a.account, to: plain(a.route === "note" ? a.draft.to.split(",")[0] : a.best.target), adv: a.route === "note" ? "" : a.best.introducer, how: a.route === "note" ? "" : a.best.how })),
+    ...C.accounts.filter(a => a.route !== "note").map(a => ({ id: geoId(a), account: a.account, to: plain(a.to.name), adv: a.introducer, how: "Introduces Aidan Harte" })),
+  ];
+  const known = focus.filter(f => f.adv).length;
+  return `<div class="sec"><h2>Outreach: what Ross does</h2>
+      <p class="cap">Every Monday Vieu picks the accounts, the people and the angle, and writes the emails. Each kind of outreach plugs in differently.</p>
+      <div class="plug">
+        <div class="pc note"><span class="way note">Signal-led outreach</span><h3>Sent automatically from a connected mailbox</h3>
+          <ol><li><b>Once:</b> Ross, or the adviser it comes from, connects their mailbox to Vieu.</li>
+            <li><b>Each Monday:</b> Ross approves the first emails, in one click.</li>
+            <li><b>Vieu sends them</b> and logs replies in the KRG tracker.</li></ol></div>
+        <div class="pc warm"><span class="way warm">Warm intros</span><h3>Sent by the adviser who knows them</h3>
+          <ol><li><b>Weekly adviser call:</b> Ross shares the two-week focus list.</li>
+            <li><b>The adviser clicks Launch email:</b> a ready-to-send blurb opens in their own inbox.</li>
+            <li><b>They send it</b> with Ross in BCC. Vieu logs it.</li></ol></div>
+      </div></div>
+  <div class="lanes2">
+    <div class="lane2">
+      <div class="lane-h"><span class="way note">Signal-led</span><h3>${cold.length} emails for Ross to approve</h3><button class="btn primary" data-all="cold">Approve all ${cold.length}</button></div>
+      <div class="items">${cold.map(c => `<div class="item"><div><b>${esc(c.account)}</b> <span class="cap">→ ${esc(c.to)}</span><div class="cap">${esc(c.what)} · from ${esc(c.from)}</div></div>
+        <div class="actions"><button class="btn" data-goto="${esc(c.id)}">Read</button><button class="btn" data-act="ap-${esc(c.id)}" data-cold aria-pressed="false" data-on="Approved">Approve</button></div></div>`).join("")}</div>
+      <p class="note">Each offers a free two-page exposure brief. Aidan signs off once on the notes sent in his name.</p>
+    </div>
+    <div class="lane2">
+      <div class="lane-h"><span class="way warm">Warm</span><h3>${focus.length} focus accounts for advisers</h3><span class="tag">Oct 26 – ${GOAL}</span></div>
+      <div class="items">${focus.map(f => `<div class="item"><div><b>${esc(f.account)}</b> <span class="cap">→ ${esc(f.to)}</span>
+          <div class="cap">${f.adv ? `<span class="dot warm"></span>${esc(f.adv)} · ${esc(f.how)}` : `<span class="dot note"></span>No path yet: ask the advisers who knows ${esc(first(f.to))}`}</div></div>
+          <div class="actions">${f.adv ? `<button class="btn" data-goto="${esc(f.id)}">Read</button><button class="btn" data-act="ln-${esc(f.id)}" aria-pressed="false" data-on="Opened in inbox">Launch email</button>` : ""}</div></div>`).join("")}</div>
+      <p class="note">${known} have a known path. Not sent by ${GOAL}? The account becomes a signal-led email from Ross.</p>
+    </div>
+  </div>`;
+}
+
+/* ---------- Events ---------- */
+function events() {
+  const G = D.dinnerNyc, n = G.reduce((k, g) => k + g.people.length, 0);
+  const ev = (x, cls) => `<div class="evc"><div class="label">${esc(x.account)}</div><b>${esc(x.who)}</b>${x.title ? `<span class="cap">${esc(x.title)}</span>` : ""}
+      <div>${link(x.url, x.event)}</div><div class="cap">${esc(x.when)}</div><div class="cap"><span class="dot ${cls}"></span>${esc(x.proof)}</div></div>`;
+  return `<div class="sec"><h2>Meet them in person</h2>
+      <div class="mini3">
+        <div class="fk"><div class="step"><i>1</i>Intercept at events</div><span class="cap">Where target people speak, Ross or an adviser is in the room.</span></div>
+        ${JOIN}
+        <div class="fk"><div class="step"><i>2</i>Host a dinner in New York</div><span class="cap">A small KRG dinner, one adviser hosting.</span></div>
+        ${JOIN}
+        <div class="fk"><div class="step"><i>3</i>Call and invite</div><span class="cap">Ross invites by phone or LinkedIn; advisers invite the people they know.</span></div>
+      </div></div>
+
+  <div class="sec"><h2>Intercept these people at events</h2>
+    <div class="evgrid">${D.meetTop.map(x => `<div class="evc"><div class="label">${esc(x.city)} · ${esc(x.when)}</div><div class="evn">${link(x.url, x.event)}</div>
+      <div class="evp"><b>${esc(x.who)}</b><span class="cap">${x.title ? esc(x.title) + " · " : ""}${esc(x.account)}</span></div></div>`).join("")}</div>
+    <p class="cap">Everyone else on this week's list: invite them to the New York dinner below.</p></div>
+
+  <div class="sec"><h2>Host a KRG dinner in New York</h2>
+    <p class="cap">${n} senior comms and public affairs leaders whose Vieu profiles put them in the New York area.</p>
+    <div class="list">${G.map(g => `<div class="dg"><div class="label">${esc(g.group)}</div>
+      ${g.people.map((p, j) => `<div class="drow"><div class="xp"><i class="av ${p.warm ? "wm" : ""}" aria-hidden="true">${esc(initials(p.name))}</i><div><b>${esc(plain(p.name))}</b><span class="cap">${esc(shortT(p.title))} · ${esc(p.account)}</span>${p.warm ? `<span class="tag warm" style="justify-self:start">Warm via ${esc(p.warm)}</span>` : ""}</div></div>
+        <div class="cap">${esc(p.location)}</div>
+        <div class="actions">${p.linkedIn ? `<a class="btn" href="${esc(p.linkedIn)}" target="_blank" rel="noopener">LinkedIn</a>` : ""}<button class="btn" data-act="inv-${esc(initials(p.name))}${j}${esc(g.group.length)}" aria-pressed="false" data-on="Invited">Invite</button></div></div>`).join("")}</div>`).join("")}</div>
+    <p class="note">Locations come from Vieu profiles.</p></div>`;
+}
+
+/* ---------- tabs ---------- */
+const VIEWS = [["how", "Overview", how], ["week", "Weekly priority accounts", week], ["people", "Stakeholders", people], ["new", "Priority companies beyond Top 1K", monthly], ["campaign", "Specific campaigns", campaign], ["outreach", "Outreach", outreach], ["events", "Events", events]];
+const GROUPS = [["Overview", ["how"]], ["Campaigns", ["week", "people", "new", "campaign"]], ["Outreach & events", ["outreach", "events"]]];
+const nav = document.getElementById("tabs"), sub = document.getElementById("subtabs"), main = document.getElementById("views");
+const label = Object.fromEntries(VIEWS.map(v => [v[0], v[1]]));
+VIEWS.forEach(([id, , fn]) => {
+  const s = document.createElement("section"); s.className = "view"; s.id = id; s.setAttribute("role", "tabpanel"); s.hidden = true;
+  try { s.innerHTML = fn() } catch (e) { s.innerHTML = `<p class="muted">This view could not load.</p>`; console.error(e) }
+  main.appendChild(s);
+});
+GROUPS.forEach(([g, vs], i) => {
+  const b = document.createElement("button"); b.setAttribute("role", "tab"); b.id = "tab-" + vs[0]; b.textContent = g; b.dataset.tab = vs[0]; b.dataset.group = i; nav.appendChild(b);
+});
+const tabs = [...nav.children];
+function show(id, focus) {
+  const gi = GROUPS.findIndex(([, vs]) => vs.includes(id)), vs = GROUPS[gi][1];
+  tabs.forEach((t, i) => { const on = i === gi; t.setAttribute("aria-selected", on); t.tabIndex = on ? 0 : -1; if (on && focus) t.focus() });
+  sub.hidden = vs.length < 2;
+  sub.innerHTML = vs.map(v => `<button data-tab="${v}" aria-pressed="${v === id}">${esc(label[v])}</button>`).join("");
+  VIEWS.forEach(([v]) => document.getElementById(v).hidden = v !== id);
+  try { localStorage.setItem("krg-tab2", id) } catch (e) {}
+}
+tabs.forEach((t, i) => {
+  t.addEventListener("keydown", e => { if (e.key === "ArrowRight" || e.key === "ArrowLeft") { const n = tabs[(i + (e.key === "ArrowRight" ? 1 : tabs.length - 1)) % tabs.length]; show(n.dataset.tab, true) } });
+});
+const ids = VIEWS.map(v => v[0]);
+let start = location.hash.slice(1); if (!ids.includes(start)) { try { start = localStorage.getItem("krg-tab2") } catch (e) { start = null } }
+show(ids.includes(start) ? start : "how");
+
+document.addEventListener("click", e => {
+  const tb = e.target.closest("[data-tab]");
+  if (tb) { show(tb.dataset.tab); window.scrollTo(0, 0); return }
+  const g = e.target.closest("[data-goto]");
+  if (g) { const r = document.getElementById(g.dataset.goto); if (r) { show(r.closest("section.view").id); r.open = true; r.scrollIntoView({ block: "start" }) } return }
+  const al = e.target.closest("[data-all]");
+  if (al) { document.querySelectorAll("[data-cold]").forEach(b => { if (!b.dataset.off) b.dataset.off = b.textContent; b.setAttribute("aria-pressed", true); b.textContent = b.dataset.on }); al.textContent = "All approved"; al.disabled = true; return }
+  const f = e.target.closest("[data-flow]");
+  if (f) { const el = document.getElementById(f.dataset.flow); el.hidden = !el.hidden; f.setAttribute("aria-expanded", !el.hidden); if (!el.hidden) el.scrollIntoView({ block: "nearest", behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" }); return }
+  const o = e.target.closest("[data-open]");
+  if (o) { const el = document.getElementById(o.dataset.open); el.hidden = false; el.scrollIntoView({ block: "nearest", behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" }); return }
+  const p = e.target.closest("[data-pass]"); if (p) { p.textContent = "Passed: Ross is told, no follow-up"; p.disabled = true; return }
+  const s = e.target.closest("[data-sent]"); if (s) { s.textContent = "Sent (preview)"; s.disabled = true; return }
+  const act = e.target.closest("[data-act]"); if (act) { const on = act.getAttribute("aria-pressed") !== "true"; act.setAttribute("aria-pressed", on); if (!act.dataset.off) act.dataset.off = act.textContent; act.textContent = on ? act.dataset.on : act.dataset.off; return }
+  const y = e.target.closest("[data-yn]"); if (y) { document.querySelectorAll(`[data-yn="${y.dataset.yn}"]`).forEach(b => b.setAttribute("aria-pressed", b === y)); return }
+  const b = e.target.closest("[data-copy]"); if (!b) return;
+  const el = document.getElementById(b.dataset.copy);
+  const done = () => { b.textContent = "Copied"; setTimeout(() => b.textContent = "Copy draft", 1600) };
+  navigator.clipboard?.writeText(el.textContent).then(done, () => { const r = document.createRange(); r.selectNodeContents(el); const s = getSelection(); s.removeAllRanges(); s.addRange(r); b.textContent = "Selected, press Ctrl/Cmd+C" });
+});
+</script>
+
+</body></html>
